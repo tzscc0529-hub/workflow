@@ -273,44 +273,82 @@ export default function ReportsPage() {
                   {isExpanded && analysis && (
                     <div className="px-16 py-6 bg-muted/20 border-t border-border/10">
                       <div className="grid grid-cols-3 gap-6">
-                        {analysis.summary ? (
+                        {analysis.core_highlight ? (
                           <div className="col-span-3">
-                            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">概要</p>
-                            <p className="text-sm leading-relaxed">{String(analysis.summary)}</p>
+                            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">核心亮点</p>
+                            <p className="text-sm leading-relaxed">{String(analysis.core_highlight)}</p>
                           </div>
                         ) : null}
-                        {analysis.style ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">风格</p>
-                            <p className="text-sm">{String(analysis.style)}</p>
-                          </div>
-                        ) : null}
+                        {(() => {
+                          const breakdown = (analysis as Record<string, unknown>)
+                            .attraction_breakdown as Record<string, unknown> | undefined;
+                          const labels: Record<string, string> = {
+                            hook_mechanism: '钩子机制',
+                            curiosity_gap: '悬念/信息差',
+                            emotional_trigger: '核心情绪',
+                            pacing_rhythm: '节奏与信息密度',
+                            sensory_stimulation: '感官刺激点',
+                          };
+                          if (breakdown && typeof breakdown === 'object') {
+                            return (
+                              <div className="col-span-3">
+                                <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">吸引力拆解</p>
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {Object.entries(labels).map(([key, label]) =>
+                                    breakdown[key] ? (
+                                      <div key={key} className="flex gap-3 text-sm">
+                                        <span className="text-muted-foreground shrink-0 w-28">{label}</span>
+                                        <span className="text-foreground">{String(breakdown[key])}</span>
+                                      </div>
+                                    ) : null,
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        {(() => {
+                          const segments = (analysis as Record<string, unknown>).segments as
+                            | Array<Record<string, unknown>>
+                            | undefined;
+                          if (Array.isArray(segments) && segments.length > 0) {
+                            return (
+                              <div className="col-span-3">
+                                <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">
+                                  逐镜头拆解（{segments.length} 镜）
+                                </p>
+                                <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                                  {segments.map((seg, i) => (
+                                    <div key={i} className="flex gap-3 text-sm border-l border-border/40 pl-3">
+                                      <span className="text-muted-foreground shrink-0 font-mono text-xs pt-0.5">
+                                        {String(seg.shot_number ?? i + 1)} · {String(seg.time_range ?? '')}
+                                      </span>
+                                      <span className="text-foreground">{String(seg.visual_description ?? '')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                         {record.category ? (
                           <div>
                             <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">分类</p>
                             <p className="text-sm">{record.category}</p>
                           </div>
                         ) : null}
-                        {(() => {
-                          const scenes = (analysis as Record<string, unknown>).scenes as string[] | undefined;
-                          if (Array.isArray(scenes) && scenes.length > 0) {
-                            return (
-                              <div className="col-span-3">
-                                <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">关键场景</p>
-                                <ul className="list-disc list-inside text-sm space-y-0.5">
-                                  {scenes.map((scene, i) => (
-                                    <li key={i}>{String(scene)}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                        {analysis.elements ? (
+                        {analysis.pain_point_analysis ? (
                           <div className="col-span-3">
-                            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">主要元素</p>
-                            <p className="text-sm leading-relaxed">{String(analysis.elements)}</p>
+                            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">痛点分析</p>
+                            <p className="text-sm leading-relaxed">{String(analysis.pain_point_analysis)}</p>
+                          </div>
+                        ) : null}
+                        {analysis.improvement_suggestions ? (
+                          <div className="col-span-3">
+                            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">迭代改进建议</p>
+                            <p className="text-sm leading-relaxed">{String(analysis.improvement_suggestions)}</p>
                           </div>
                         ) : null}
                       </div>

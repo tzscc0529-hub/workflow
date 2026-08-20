@@ -3,250 +3,341 @@ import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 视频分析最长 5 分钟
+export const maxDuration = 300;
 
-const VIDEO_CATEGORIES = ["解说向", "玩法向", "展示向", "剧情演绎", "前贴", "全贴"];
+const VIDEO_CATEGORIES = ["解说向", "玩法向", "展示向", "剧情演绎", "前贴", "全贴"] as const;
 
-function buildAnalysisPrompt(): string {
-  return `你是一名专业的视频内容分析师。请仔细观看并分析下面这段视频，然后严格按照 JSON 格式返回分析结果。
-
-请分析以下维度：
-1. summary（摘要）：用 2-3 句话概括视频的核心内容。
-2. category（类别）：从以下类别中选出最贴切的一个：${VIDEO_CATEGORIES.join("、")}。
-3. tags（标签）：提取 3-6 个关键词标签，用于分类检索。
-4. scenes（关键场景）：列出视频中 3-5 个关键画面/镜头，每个场景用一句话描述画面内容及其作用。
-5. style（风格）：判断视频的整体风格（如写实、卡通、影视、纪录片等）。
-6. elements（元素）：识别画面中的主要视觉元素（人物、场景、道具、特效等）。
-7. targetAudience（目标受众）：推测视频面向哪类观众。
-
-只返回 JSON，不要包含 markdown 代码块标记，不要输出任何解释性文字。JSON 结构如下：
+// ============================================================================
+// 本地成熟分析提示词（自 analyst.py 的 ANALYSIS_PROMPT 完整迁移，逐字保真）
+// 仅在 JSON 输出结构中追加 category / tags 两个字段，用于自动打标签（6 类）。
+// ============================================================================
+const ANALYSIS_PROMPT = `你是一位资深的游戏买量广告创意总监与视频广告分析专家，擅长从专业影视语言角度拆解爆款视频的底层逻辑和结构。
+请对这个视频进行**逐镜头级别**的精细化拆解，结合视频画面、音频字幕及画面文字，从以下维度分析每一个镜头：
+- 镜号（按顺序编号）
+- 时间段
+- 视角/机位（如 第一人称、第三人称过肩、俯视、仰视、特写、远景）
+- 运镜方式（如 推、拉、摇、移、跟、甩镜、固定、手持晃动）
+- 拍摄角度（如 平视、俯拍、仰拍、荷兰角）
+- 画面光线（如 逆光、顶光、柔光、高对比硬光、闪光切换）
+- 色温（如 暖色调偏黄、冷色调偏蓝、中性色温，可给出大致数值范围）
+- 美术风格（如 写实、卡通、赛博朋克、水墨、像素风）
+- 画面内容描述
+- 旁白/音效/音乐描述
+- 创意意图（为什么这么设计）
+- 骨架标签（如 黄金3秒/痛点铺垫/玩法展示/转化点/CTA）
+请只输出一个JSON对象，不要输出任何JSON以外的文字、markdown代码块标记或说明。JSON结构如下：
 {
-  "summary": "string",
-  "category": "string",
-  "tags": ["string"],
-  "scenes": ["string"],
-  "style": "string",
-  "elements": ["string"],
-  "targetAudience": "string"
+  "core_highlight": "一句话说明这个视频为什么能吸引人",
+  "attraction_breakdown": {
+    "hook_mechanism": "开篇钩子具体手法",
+    "curiosity_gap": "制造的悬念/信息差",
+    "emotional_trigger": "触发的核心情绪",
+    "pacing_rhythm": "剪辑节奏与信息密度分析",
+    "sensory_stimulation": "画面/音效带来的感官刺激点"
+  },
+  "segments": [
+    {
+      "shot_number": "镜号，如 01",
+      "time_range": "时间段，如 0:00-0:03",
+      "pov": "视角/机位",
+      "camera_movement": "运镜方式",
+      "shot_angle": "拍摄角度",
+      "lighting": "画面光线",
+      "color_temperature": "色温",
+      "art_style": "美术风格",
+      "visual_description": "画面内容描述",
+      "audio_or_sfx": "旁白/音效/音乐描述",
+      "creative_intent": "创意意图",
+      "skeleton_tag": "骨架标签"
+    }
+  ],
+  "pain_point_analysis": "视频抓住了玩家的什么心理痛点",
+  "improvement_suggestions": "如果基于这个视频迭代，会怎么修改",
+  "suggested_folder_name": "根据视频核心内容生成一个简短英文/拼音短名，如 sniper-headshot-hook",
+  "category": "从以下类别中判断最贴切的一个：解说向、玩法向、展示向、剧情演绎、前贴、全贴",
+  "tags": ["提炼 3-6 个用于分类检索的关键词标签"]
 }`;
+
+function asText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(asText).filter(Boolean).join("、");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 }
 
+function getSupabaseAdmin() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error("Supabase 配置缺失（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）");
+  }
+  return createClient(url, key);
+}
+
+// 把 Gemini 返回的原始 JSON 结构规整为统一的分析结果，并确保 category/tags 就绪。
+function normalizeAnalysis(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Gemini 返回内容不是有效 JSON 对象");
+  }
+  const data = raw as Record<string, unknown>;
+
+  const required = [
+    "core_highlight",
+    "attraction_breakdown",
+    "segments",
+    "pain_point_analysis",
+    "improvement_suggestions",
+  ];
+  const missing = required.filter((key) => !data[key]);
+  if (missing.length > 0) {
+    throw new Error(`Gemini 返回缺少字段：${missing.join(", ")}`);
+  }
+  if (!Array.isArray(data.segments) || data.segments.length === 0) {
+    throw new Error("Gemini 返回的 segments 必须是非空数组");
+  }
+
+  let category = asText(data.category).trim();
+  if (!VIDEO_CATEGORIES.includes(category as (typeof VIDEO_CATEGORIES)[number])) {
+    category = VIDEO_CATEGORIES[0];
+  }
+
+  let tags: string[] = Array.isArray(data.tags)
+    ? data.tags.map(asText).filter(Boolean).slice(0, 8)
+    : [];
+  if (tags.length === 0) tags = [category];
+
+  return {
+    ...data,
+    category,
+    tags,
+    suggested_folder_name: asText(data.suggested_folder_name) || "video-analysis",
+  };
+}
+
+// 生成与原 JSON 结构一致的 Markdown 报告（供用户预览与下载）。
 function generateMarkdownReport(
   analysis: Record<string, unknown>,
-  videoName: string,
+  videoName: string
 ): string {
-  const summary = String(analysis.summary ?? "无");
-  const category = String(analysis.category ?? "未分类");
-  const style = String(analysis.style ?? "未知");
-  const targetAudience = String(analysis.targetAudience ?? "未知");
-  const tags = Array.isArray(analysis.tags)
-    ? analysis.tags.map(String).join("、")
-    : "无";
-  const scenes = Array.isArray(analysis.scenes)
-    ? analysis.scenes.map(String)
+  const core = asText(analysis.core_highlight);
+  const breakdown = (analysis.attraction_breakdown ?? {}) as Record<string, unknown>;
+  const segments = Array.isArray(analysis.segments)
+    ? (analysis.segments as Record<string, unknown>[])
     : [];
-  const elements = Array.isArray(analysis.elements)
-    ? analysis.elements.map(String)
+  const painPoint = asText(analysis.pain_point_analysis);
+  const improvement = asText(analysis.improvement_suggestions);
+  const folder = asText(analysis.suggested_folder_name);
+  const category = asText(analysis.category);
+  const tags = Array.isArray(analysis.tags)
+    ? analysis.tags.map(asText).filter(Boolean)
     : [];
 
   const lines: string[] = [];
-  lines.push(`# 视频分析报告`);
+  lines.push(`# 视频骨架分析报告`);
   lines.push("");
+  lines.push(`> 视频文件：${videoName}`);
   lines.push(`> 生成时间：${new Date().toLocaleString("zh-CN")}`);
+  if (category) lines.push(`> 内容分类：${category}`);
   lines.push("");
-  lines.push(`## 视频信息`);
+
+  lines.push("## 核心亮点");
+  lines.push(core || "（无）");
   lines.push("");
-  lines.push(`- **文件名**：${videoName}`);
-  lines.push(`- **类别**：${category}`);
-  lines.push(`- **风格**：${style}`);
-  lines.push(`- **目标受众**：${targetAudience}`);
-  lines.push("");
-  lines.push(`## 内容摘要`);
-  lines.push("");
-  lines.push(summary);
-  lines.push("");
-  lines.push(`## 关键词标签`);
-  lines.push("");
-  lines.push(tags);
-  lines.push("");
-  if (scenes.length > 0) {
-    lines.push(`## 关键场景`);
-    lines.push("");
-    scenes.forEach((scene, i) => {
-      lines.push(`${i + 1}. ${scene}`);
-    });
-    lines.push("");
+
+  lines.push("## 吸引力拆解");
+  const breakdownRows: Array<[string, string]> = [
+    ["钩子机制", asText(breakdown.hook_mechanism)],
+    ["悬念/信息差", asText(breakdown.curiosity_gap)],
+    ["核心情绪", asText(breakdown.emotional_trigger)],
+    ["节奏与信息密度", asText(breakdown.pacing_rhythm)],
+    ["感官刺激点", asText(breakdown.sensory_stimulation)],
+  ];
+  for (const [label, value] of breakdownRows) {
+    if (value) lines.push(`- **${label}**：${value}`);
   }
-  if (elements.length > 0) {
-    lines.push(`## 视觉元素`);
-    lines.push("");
-    elements.forEach((el) => {
-      lines.push(`- ${el}`);
+  lines.push("");
+
+  lines.push("## 逐镜头拆解");
+  if (segments.length === 0) {
+    lines.push("（无镜头数据）");
+  } else {
+    segments.forEach((seg, index) => {
+      const shotNumber = asText(seg.shot_number) || String(index + 1).padStart(2, "0");
+      const timeRange = asText(seg.time_range);
+      lines.push("");
+      lines.push(`### 镜头 ${shotNumber}${timeRange ? `（${timeRange}）` : ""}`);
+      lines.push("");
+      lines.push("| 维度 | 内容 |");
+      lines.push("| --- | --- |");
+      const rows: Array<[string, string]> = [
+        ["视角/机位", asText(seg.pov)],
+        ["运镜方式", asText(seg.camera_movement)],
+        ["拍摄角度", asText(seg.shot_angle)],
+        ["画面光线", asText(seg.lighting)],
+        ["色温", asText(seg.color_temperature)],
+        ["美术风格", asText(seg.art_style)],
+        ["画面内容", asText(seg.visual_description)],
+        ["旁白/音效/音乐", asText(seg.audio_or_sfx)],
+        ["创意意图", asText(seg.creative_intent)],
+        ["骨架标签", asText(seg.skeleton_tag)],
+      ];
+      for (const [label, value] of rows) {
+        if (value) {
+          lines.push(`| ${label} | ${value.replace(/\|/g, "\\|").replace(/\n/g, "<br>")} |`);
+        }
+      }
     });
-    lines.push("");
   }
+  lines.push("");
+
+  lines.push("## 痛点分析");
+  lines.push(painPoint || "（无）");
+  lines.push("");
+
+  lines.push("## 迭代改进建议");
+  lines.push(improvement || "（无）");
+  lines.push("");
+
+  lines.push("## 标签");
+  if (category) lines.push(`- 分类：${category}`);
+  if (tags.length > 0) lines.push(`- 标签：${tags.join("、")}`);
+  lines.push("");
+
+  lines.push("## 建议文件夹名");
+  lines.push(`\`${folder}\``);
+  lines.push("");
+
   return lines.join("\n");
 }
 
-interface AnalysisBody {
-  videoUrl: string;
-  videoName?: string;
-  model?: string;
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = (await req.json()) as AnalysisBody;
-    const { videoUrl, videoName = "video.mp4", model = "gemini-2.5-flash" } = body;
-
-    if (!videoUrl) {
-      return NextResponse.json(
-        { error: "缺少 videoUrl 参数" },
-        { status: 400 },
-      );
-    }
-
-    const apiKey =
-      process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "未配置 GEMINI_API_KEY 环境变量" },
-        { status: 500 },
+        { error: "未配置 Gemini API Key（GEMINI_API_KEY / GOOGLE_API_KEY）" },
+        { status: 500 }
       );
     }
+
+    const body = await request.json();
+    const videoUrl = typeof body.videoUrl === "string" ? body.videoUrl.trim() : "";
+    const videoName = typeof body.videoName === "string" ? body.videoName.trim() : "video";
+    const model = typeof body.model === "string" ? body.model.trim() : "gemini-2.5-flash";
+
+    if (!videoUrl) {
+      return NextResponse.json({ error: "缺少视频 URL" }, { status: 400 });
+    }
+
+    // 1. 下载视频二进制流（用于上传到 Gemini Files API）
+    const downloadRes = await fetch(videoUrl, { cache: "no-store" });
+    if (!downloadRes.ok) {
+      return NextResponse.json(
+        { error: `下载视频失败：HTTP ${downloadRes.status}` },
+        { status: 500 }
+      );
+    }
+    const videoBuffer = Buffer.from(await downloadRes.arrayBuffer());
+    const fileName = videoName.replace(/[^\w\u4e00-\u9fa5.-]/g, "_");
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // 1. 从 Supabase Storage 公共 URL 下载视频
-    const videoResp = await fetch(videoUrl, {
-      signal: AbortSignal.timeout(120_000),
-    });
-    if (!videoResp.ok) {
-      return NextResponse.json(
-        { error: `下载视频失败：HTTP ${videoResp.status}` },
-        { status: 500 },
-      );
-    }
-    const videoBuffer = await videoResp.arrayBuffer();
-    const mimeType =
-      videoResp.headers.get("content-type") || "video/mp4";
-
     // 2. 上传到 Gemini Files API
-    const fileName = `web_${Date.now()}_${videoName}`;
-    const uploadResult = await ai.files.upload({
-      file: new File([videoBuffer], fileName, { type: mimeType }),
-      config: { mimeType },
-    });
-
-    const fileUri = uploadResult.uri || "";
-    const fileRemoteName = uploadResult.name || "";
-
-    if (!fileUri || !fileRemoteName) {
+    let uploadResult;
+    try {
+      uploadResult = await ai.files.upload({
+        file: new File([new Uint8Array(videoBuffer)], fileName, {
+          type: "video/mp4",
+        }),
+        config: { mimeType: "video/mp4", displayName: fileName },
+      });
+    } catch (error) {
       return NextResponse.json(
-        { error: "视频上传到 Gemini 失败" },
-        { status: 500 },
+        { error: `上传视频到 Gemini 失败：${error instanceof Error ? error.message : String(error)}` },
+        { status: 500 }
       );
     }
 
-    // 3. 等待视频处理完成
-    let fileState = uploadResult.state ?? "PROCESSING";
-    const started = Date.now();
-    const timeoutMs = 300_000;
-    while (fileState === "PROCESSING") {
-      if (Date.now() - started > timeoutMs) {
-        return NextResponse.json(
-          { error: "视频处理超时（超过 5 分钟）" },
-          { status: 500 },
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 5_000));
-      const fileInfo = await ai.files.get({ name: fileRemoteName });
-      fileState = fileInfo.state ?? "ACTIVE";
+    const fileUri = (uploadResult as { uri?: string }).uri;
+    if (!fileUri) {
+      return NextResponse.json({ error: "Gemini 未返回文件标识" }, { status: 500 });
     }
 
+    // 3. 等待文件处理完成
+    let fileState = "PROCESSING";
+    for (let i = 0; i < 60; i++) {
+      const state = (await ai.files.get({ name: fileUri })) as { state?: string };
+      fileState = state.state || "PROCESSING";
+      if (fileState === "ACTIVE" || fileState === "FAILED") break;
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
     if (fileState === "FAILED") {
+      return NextResponse.json({ error: "视频在 Gemini 中处理失败" }, { status: 500 });
+    }
+    if (fileState !== "ACTIVE") {
+      return NextResponse.json({ error: "视频处理超时" }, { status: 500 });
+    }
+
+    // 4. 调用 Gemini 分析（使用本地成熟提示词）
+    let responseText = "";
+    try {
+      const result = await ai.models.generateContent({
+        model,
+        contents: [
+          { role: "user", parts: [{ text: ANALYSIS_PROMPT }, { fileData: { fileUri } }] },
+        ],
+      });
+      responseText = result.text ?? "";
+    } catch (error) {
       return NextResponse.json(
-        { error: "视频在 Gemini 服务端解析失败" },
-        { status: 500 },
+        { error: `Gemini 分析失败：${error instanceof Error ? error.message : String(error)}` },
+        { status: 500 }
       );
     }
 
-    // 4. 调用 Gemini 分析
-    const result = await ai.models.generateContent({
-      model,
-      contents: [
-        { fileData: { fileUri, mimeType } },
-        { text: buildAnalysisPrompt() },
-      ],
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2,
-      },
-    });
-
-    const responseText = result.text?.trim() || "";
-    if (!responseText) {
-      return NextResponse.json({ error: "Gemini 返回空内容" }, { status: 500 });
-    }
-
+    // 5. 解析并规整 JSON
     let analysis: Record<string, unknown>;
     try {
-      analysis = JSON.parse(responseText);
-    } catch {
-      // 尝试从可能带代码块的响应中提取 JSON
       const cleaned = responseText
+        .trim()
         .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```$/, "")
-        .trim();
-      try {
-        analysis = JSON.parse(cleaned);
-      } catch {
-        return NextResponse.json(
-          { error: `Gemini 返回无法解析的内容：${responseText.slice(0, 200)}` },
-          { status: 500 },
-        );
-      }
+        .replace(/\s*```$/, "");
+      analysis = normalizeAnalysis(JSON.parse(cleaned));
+    } catch (error) {
+      return NextResponse.json(
+        { error: `解析分析结果失败：${error instanceof Error ? error.message : String(error)}` },
+        { status: 500 }
+      );
     }
 
-    // 5. 生成 Markdown 报告
+    // 6. 生成报告并上传到 Supabase Storage
     const reportMarkdown = generateMarkdownReport(analysis, videoName);
-
-    // 6. 上传报告到 Supabase Storage（reports 桶）
-    let reportUrl = "";
-    const supabaseUrl = process.env.SUPABASE_URL || "";
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const safeName = videoName.replace(/[^\w\u4e00-\u9fa5.-]/g, "_");
-        const reportPath = `reports/${Date.now()}_${safeName}.md`;
-        const { error: uploadErr } = await supabase.storage
-          .from("reports")
-          .upload(reportPath, reportMarkdown, {
-            contentType: "text/markdown",
-            upsert: true,
-          });
-        if (!uploadErr) {
-          const { data: publicUrl } = supabase.storage
-            .from("reports")
-            .getPublicUrl(reportPath);
-          reportUrl = publicUrl.publicUrl || "";
-        }
-      } catch (reportErr) {
-        // 报告上传失败不阻塞分析结果返回
-        console.error("报告上传失败:", reportErr);
+    let reportUrl: string | null = null;
+    try {
+      const supabase = getSupabaseAdmin();
+      const reportKey = `reports/${Date.now()}_${fileName.replace(/\.[^.]+$/, "")}_报告.md`;
+      const { error: uploadError } = await supabase.storage
+        .from("reports")
+        .upload(reportKey, new Blob([reportMarkdown], { type: "text/markdown" }), {
+          contentType: "text/markdown",
+          upsert: false,
+        });
+      if (!uploadError) {
+        const { data } = supabase.storage.from("reports").getPublicUrl(reportKey);
+        reportUrl = data.publicUrl;
       }
+    } catch (error) {
+      console.warn("上传报告失败（不影响分析结果）:", error);
     }
 
-    return NextResponse.json({
-      success: true,
-      analysis,
-      reportMarkdown,
-      reportUrl,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("视频分析失败:", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ analysis, reportMarkdown, reportUrl });
+  } catch (error) {
+    console.error("视频分析失败:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "视频分析失败" },
+      { status: 500 }
+    );
   }
 }

@@ -342,22 +342,30 @@ export default function AnalysisPage() {
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-xs">
-                              {video.analysisResult.summary ? (
+                              {video.analysisResult.core_highlight ? (
                                 <div className="col-span-2">
-                                  <span className="text-muted-foreground">概要：</span>
-                                  <span className="text-foreground">{String(video.analysisResult.summary)}</span>
+                                  <span className="text-muted-foreground">核心亮点：</span>
+                                  <span className="text-foreground">{String(video.analysisResult.core_highlight)}</span>
                                 </div>
                               ) : null}
-                              {video.analysisResult.style ? (
+                              {Array.isArray(video.analysisResult.segments) ? (
                                 <div>
-                                  <span className="text-muted-foreground">风格：</span>
-                                  <span className="text-foreground">{String(video.analysisResult.style)}</span>
+                                  <span className="text-muted-foreground">镜头数：</span>
+                                  <span className="text-foreground">
+                                    {(video.analysisResult.segments as unknown[]).length} 个
+                                  </span>
                                 </div>
                               ) : null}
                               {video.category ? (
                                 <div>
                                   <span className="text-muted-foreground">分类：</span>
                                   <span className="text-foreground">{video.category}</span>
+                                </div>
+                              ) : null}
+                              {video.analysisResult.pain_point_analysis ? (
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground">痛点：</span>
+                                  <span className="text-foreground">{String(video.analysisResult.pain_point_analysis)}</span>
                                 </div>
                               ) : null}
                             </div>
