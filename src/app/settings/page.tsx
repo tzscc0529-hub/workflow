@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import {
-  Eye, EyeOff, Zap, FolderOpen, Save, RotateCcw,
-  Lock, ShieldAlert, Check, X
+  Zap, FolderOpen, Save, RotateCcw,
+  Check, X, KeyRound
 } from 'lucide-react';
-
-const API_KEY_PASSWORD = 'LMY0529';
-const API_KEY_VALUE = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
 const STORAGE_KEY = 'video_skeleton_settings';
 
@@ -28,6 +25,11 @@ interface SettingsData {
   uploadMode: string;
   chunkSize: number;
   targetCompressSize: number;
+}
+
+interface KeyStatus {
+  configured: boolean;
+  masked: string;
 }
 
 const DEFAULTS: SettingsData = {
@@ -64,44 +66,21 @@ function saveSettings(data: SettingsData) {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsData>(DEFAULTS);
-  const [showKey, setShowKey] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [keyStatus, setKeyStatus] = useState<KeyStatus>({ configured: false, masked: '' });
+  const [keyStatusLoading, setKeyStatusLoading] = useState(true);
+  const [testResult, setTestResult] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
-  // Password dialog state
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState(false);
-  const [passwordAttempts, setPasswordAttempts] = useState(0);
-  const [lockedOut, setLockedOut] = useState(false);
-  const [lockTimer, setLockTimer] = useState(0);
-  const passwordInputRef = useRef<HTMLInputElement>(null);
-
-  // Load settings from localStorage on mount
+  // Load settings from localStorage + fetch key status on mount
   useEffect(() => {
     setSettings(loadSettings());
+    fetch('/api/settings/key-status')
+      .then((r) => r.json())
+      .then((d: KeyStatus) => setKeyStatus(d))
+      .catch(() => setKeyStatus({ configured: false, masked: '' }))
+      .finally(() => setKeyStatusLoading(false));
   }, []);
-
-  // Auto-focus and clear on dialog open
-  useEffect(() => {
-    if (showPasswordDialog && passwordInputRef.current) {
-      passwordInputRef.current.focus();
-      setPasswordInput('');
-      setPasswordError(false);
-    }
-  }, [showPasswordDialog]);
-
-  // Lockout countdown
-  useEffect(() => {
-    if (lockedOut && lockTimer > 0) {
-      const timer = setTimeout(() => setLockTimer(lockTimer - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-    if (lockedOut && lockTimer === 0) {
-      setLockedOut(false);
-      setPasswordAttempts(0);
-    }
-  }, [lockedOut, lockTimer]);
 
   // Save toast auto-dismiss
   useEffect(() => {
@@ -118,40 +97,22 @@ export default function SettingsPage() {
     });
   }, []);
 
-  const handleEyeClick = () => {
-    if (showKey) {
-      setShowKey(false);
-      return;
-    }
-    setShowPasswordDialog(true);
-  };
-
-  const handlePasswordSubmit = () => {
-    if (passwordInput === API_KEY_PASSWORD) {
-      setShowKey(true);
-      setShowPasswordDialog(false);
-      setPasswordError(false);
-      setPasswordAttempts(0);
-    } else {
-      setPasswordError(true);
-      const newAttempts = passwordAttempts + 1;
-      setPasswordAttempts(newAttempts);
-      if (newAttempts >= 3) {
-        setLockedOut(true);
-        setLockTimer(30);
-        setShowPasswordDialog(false);
-      }
-    }
-  };
-
-  const handlePasswordKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handlePasswordSubmit();
-    else if (e.key === 'Escape') setShowPasswordDialog(false);
-  };
-
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
     setTestResult('testing');
-    setTimeout(() => setTestResult('success'), 1500);
+    setTestError(null);
+    try {
+      const res = await fetch('/api/settings/test-connection', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (data.ok) {
+        setTestResult('success');
+      } else {
+        setTestResult('error');
+        setTestError(data.error || '连接失败');
+      }
+    } catch (e) {
+      setTestResult('error');
+      setTestError(e instanceof Error ? e.message : '无法连接 Gemini API');
+    }
   };
 
   const handleSave = () => {
@@ -214,30 +175,28 @@ export default function SettingsPage() {
               </label>
               <div className="relative">
                 <input
-                  type={showKey ? 'text' : 'password'}
-                  defaultValue={API_KEY_VALUE}
-                  readOnly={!showKey}
+                  type="text"
+                  value={
+                    keyStatusLoading
+                      ? '加载中...'
+                      : keyStatus.configured
+                        ? keyStatus.masked
+                        : '未配置'
+                  }
+                  readOnly
                   className="w-full border-none bg-muted px-3 py-2.5 pr-10 text-sm focus:ring-2 focus:ring-ring/30 focus:outline-none font-mono"
                 />
-                <button
-                  onClick={handleEyeClick}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  title={showKey ? '隐藏密钥' : '查看密钥（需要密码）'}
-                >
-                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               </div>
-              <div className="flex items-center gap-2 mt-1.5">
-                <Lock className="w-3 h-3 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">
-                  密钥已加密保护 · 查看需验证密码
-                </p>
-              </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                密钥由服务端保管，此页面仅显示脱敏状态 · 请勿将密钥写入前端代码
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <button
                 onClick={handleTestConnection}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                disabled={testResult === 'testing'}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Zap className="w-4 h-4" />
                 测试连接
@@ -250,71 +209,14 @@ export default function SettingsPage() {
                   ✓ 连接成功 — Gemini API 响应正常
                 </span>
               )}
+              {testResult === 'error' && (
+                <span className="text-sm text-destructive flex items-center gap-1.5">
+                  ✗ {testError || '连接失败'}
+                </span>
+              )}
             </div>
           </div>
         </section>
-
-        {/* Password Dialog */}
-        {showPasswordDialog && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => setShowPasswordDialog(false)}
-          >
-            <div
-              className="bg-surface-container-lowest shadow-dialog border border-border/30 p-6 w-full max-w-sm space-y-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3">
-                <Lock className="w-5 h-5 text-muted-foreground" />
-                <h3 className="text-lg font-semibold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  验证密码
-                </h3>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                API 密钥属于敏感信息。请输入密码以查看密钥内容。
-              </p>
-              <div className="space-y-2">
-                <input
-                  ref={passwordInputRef}
-                  type="password"
-                  value={passwordInput}
-                  onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
-                  onKeyDown={handlePasswordKeyDown}
-                  placeholder="请输入密码"
-                  className={`${inputClass} ${passwordError ? 'ring-2 ring-destructive/50' : ''}`}
-                  autoComplete="off"
-                />
-                {passwordError && (
-                  <p className="text-xs text-destructive flex items-center gap-1">
-                    <ShieldAlert className="w-3 h-3" /> 密码错误，请重试
-                  </p>
-                )}
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setShowPasswordDialog(false)}
-                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handlePasswordSubmit}
-                  className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-                >
-                  确认
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Lockout Toast */}
-        {lockedOut && (
-          <div className="fixed bottom-8 right-8 z-50 bg-destructive text-white px-4 py-3 text-sm shadow-dialog flex items-center gap-3">
-            <ShieldAlert className="w-4 h-4" />
-            <span>尝试次数过多，已锁定 {lockTimer} 秒</span>
-          </div>
-        )}
 
         {/* Section 2: Directory Paths */}
         <section className="space-y-6">
