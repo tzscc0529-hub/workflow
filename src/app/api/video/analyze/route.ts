@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 const VIDEO_CATEGORIES = ["解说向", "玩法向", "展示向", "剧情演绎", "前贴", "全贴"] as const;
 
@@ -67,13 +66,19 @@ function asText(value: unknown): string {
   return String(value);
 }
 
-function getSupabaseAdmin() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error("Supabase 配置缺失（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）");
-  }
-  return createClient(url, key);
+function inferMimeType(fileName: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    mp4: "video/mp4",
+    m4v: "video/x-m4v",
+    mov: "video/quicktime",
+    avi: "video/x-msvideo",
+    mkv: "video/x-matroska",
+    webm: "video/webm",
+    mpeg: "video/mpeg",
+    mpg: "video/mpeg",
+  };
+  return map[ext] ?? "video/mp4";
 }
 
 // 把 Gemini 返回的原始 JSON 结构规整为统一的分析结果，并确保 category/tags 就绪。
@@ -222,36 +227,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const videoUrl = typeof body.videoUrl === "string" ? body.videoUrl.trim() : "";
-    const videoName = typeof body.videoName === "string" ? body.videoName.trim() : "video";
-    const model = typeof body.model === "string" ? body.model.trim() : "gemini-2.5-flash";
-
-    if (!videoUrl) {
-      return NextResponse.json({ error: "缺少视频 URL" }, { status: 400 });
-    }
-
-    // 1. 下载视频二进制流（用于上传到 Gemini Files API）
-    const downloadRes = await fetch(videoUrl, { cache: "no-store" });
-    if (!downloadRes.ok) {
+    // 1. 以 FormData 形式直接接收视频文件（不再经过 Supabase Storage）
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
       return NextResponse.json(
-        { error: `下载视频失败：HTTP ${downloadRes.status}` },
-        { status: 500 }
+        { error: "请求必须是 multipart/form-data（携带 file 字段）" },
+        { status: 400 }
       );
     }
-    const videoBuffer = Buffer.from(await downloadRes.arrayBuffer());
-    const fileName = videoName.replace(/[^\w\u4e00-\u9fa5.-]/g, "_");
+
+    const fileEntry = formData.get("file");
+    if (!fileEntry || typeof fileEntry === "string") {
+      return NextResponse.json({ error: "缺少视频文件（file 字段）" }, { status: 400 });
+    }
+    const file = fileEntry as File;
+
+    const modelEntry = formData.get("model");
+    const model =
+      typeof modelEntry === "string" && modelEntry.trim()
+        ? modelEntry.trim()
+        : "gemini-2.5-flash";
+
+    const originalName = file.name || "video.mp4";
+    const mimeType = file.type || inferMimeType(originalName);
+    const safeName = originalName.replace(/[^\w\u4e00-\u9fa5.-]/g, "_") || "video.mp4";
+    const videoBuffer = Buffer.from(await file.arrayBuffer());
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // 2. 上传到 Gemini Files API
+    // 2. 直接上传视频 Buffer 到 Gemini Files API
     let uploadResult;
     try {
       uploadResult = await ai.files.upload({
-        file: new File([new Uint8Array(videoBuffer)], fileName, {
-          type: "video/mp4",
-        }),
-        config: { mimeType: "video/mp4", displayName: fileName },
+        file: new File([new Uint8Array(videoBuffer)], safeName, { type: mimeType }),
+        config: { mimeType, displayName: safeName },
       });
     } catch (error) {
       return NextResponse.json(
@@ -312,27 +323,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. 生成报告并上传到 Supabase Storage
-    const reportMarkdown = generateMarkdownReport(analysis, videoName);
-    let reportUrl: string | null = null;
-    try {
-      const supabase = getSupabaseAdmin();
-      const reportKey = `reports/${Date.now()}_${fileName.replace(/\.[^.]+$/, "")}_报告.md`;
-      const { error: uploadError } = await supabase.storage
-        .from("reports")
-        .upload(reportKey, new Blob([reportMarkdown], { type: "text/markdown" }), {
-          contentType: "text/markdown",
-          upsert: false,
-        });
-      if (!uploadError) {
-        const { data } = supabase.storage.from("reports").getPublicUrl(reportKey);
-        reportUrl = data.publicUrl;
-      }
-    } catch (error) {
-      console.warn("上传报告失败（不影响分析结果）:", error);
-    }
+    // 6. 生成 Markdown 报告，直接在响应体中返回（不再上传 Supabase Storage）
+    const reportMarkdown = generateMarkdownReport(analysis, originalName);
 
-    return NextResponse.json({ analysis, reportMarkdown, reportUrl });
+    return NextResponse.json({ analysis, reportMarkdown });
   } catch (error) {
     console.error("视频分析失败:", error);
     return NextResponse.json(
