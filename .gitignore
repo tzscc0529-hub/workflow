@@ -155,6 +155,9 @@ Desktop.ini
 *.temp
 .tmp/
 .temp/
+
+# 用户上传的临时截图
+assets/*.png
 # Optional files
 *.tgz
 *.tar
