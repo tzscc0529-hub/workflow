@@ -48,6 +48,21 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
+function inferMimeTypeFromName(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  const map: Record<string, string> = {
+    mp4: 'video/mp4',
+    m4v: 'video/x-m4v',
+    mov: 'video/quicktime',
+    avi: 'video/x-msvideo',
+    mkv: 'video/x-matroska',
+    webm: 'video/webm',
+    mpeg: 'video/mpeg',
+    mpg: 'video/mpeg',
+  };
+  return map[ext] ?? 'video/mp4';
+}
+
 export default function AnalysisPage() {
   const [videoList, setVideoList] = useState<VideoItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -67,22 +82,67 @@ export default function AnalysisPage() {
     setVideoList((list) => [...list, newVideo]);
 
     try {
+      const mimeType = file.type || inferMimeTypeFromName(file.name);
+
+      // 阶段 1：向后端申请上传会话，拿到 Google 的 uploadUrl
+      const sessionRes = await fetch('/api/video/create-upload-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType,
+        }),
+      });
+
+      if (!sessionRes.ok) {
+        const err = await sessionRes.json().catch(() => ({}));
+        throw new Error(err.error || '创建上传会话失败');
+      }
+
+      const sessionData = await sessionRes.json();
+      const uploadUrl: string | undefined = sessionData.uploadUrl;
+      if (!uploadUrl) throw new Error('未获取到上传地址（uploadUrl）');
+
+      // 阶段 2：前端直接以二进制流 PUT 到 Google，完全绕过 Vercel 4.5MB 限制
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'X-Goog-Upload-Offset': '0',
+          'X-Goog-Upload-Command': 'upload, finalize',
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`直传 Gemini 失败（${uploadRes.status}）：${errText}`);
+      }
+
+      const uploadData = await uploadRes.json().catch(() => ({}));
+      const fileUri: string | undefined = uploadData?.file?.uri;
+      const geminiName: string | undefined = uploadData?.file?.name;
+      if (!fileUri) throw new Error('Gemini 未返回文件 uri');
+
+      // 阶段 3：交由后端触发提示词分析并生成报告
       setVideoList((list) =>
         list.map((v) => (v.id === id ? { ...v, status: 'analyzing' as VideoStatus } : v))
       );
 
-      // 直接以 FormData 提交视频文件，由服务端直传 Gemini Files API 逐镜头分析
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('model', selectedModel);
-
       const analyzeRes = await fetch('/api/video/analyze', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileUri,
+          geminiName,
+          fileName: file.name,
+          mimeType,
+          model: selectedModel,
+        }),
       });
 
       if (!analyzeRes.ok) {
-        const err = await analyzeRes.json();
+        const err = await analyzeRes.json().catch(() => ({}));
         throw new Error(err.error || '分析失败');
       }
 
@@ -170,7 +230,7 @@ export default function AnalysisPage() {
             视频分析
           </h1>
           <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-            本地视频直传后端 → Gemini Files API 逐镜头分析 → 自动贴标签 → 生成报告
+            创建上传会话 → 前端直传 Gemini → 逐镜头分析 → 自动贴标签 → 生成报告
           </p>
         </div>
 
@@ -224,7 +284,7 @@ export default function AnalysisPage() {
                   <FileVideo className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">暂无视频</p>
                   <p className="text-xs text-muted-foreground/60 mt-1">
-                    选择本地视频文件后，将直传云端并调用 Gemini 进行 AI 分析
+                    选择本地视频文件后，将直传 Gemini 云端并调用 AI 进行逐镜头分析
                   </p>
                 </div>
               ) : (

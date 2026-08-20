@@ -81,6 +81,12 @@ function inferMimeType(fileName: string): string {
   return map[ext] ?? "video/mp4";
 }
 
+// 从完整 fileUri（https://.../v1beta/files/xxx）推导 Gemini 资源名（files/xxx）。
+function geminiNameFromUri(uri: string): string {
+  const match = uri.match(/\/files\/([^/?]+)/);
+  return match ? `files/${match[1]}` : uri;
+}
+
 // 把 Gemini 返回的原始 JSON 结构规整为统一的分析结果，并确保 category/tags 就绪。
 function normalizeAnalysis(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== "object") {
@@ -227,62 +233,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. 以 FormData 形式直接接收视频文件（不再经过 Supabase Storage）
-    let formData: FormData;
+    // 1. 接收前端直传后返回的 Gemini 文件标识（不再接收视频字节）。
+    let body: {
+      fileUri?: string;
+      geminiName?: string;
+      fileName?: string;
+      mimeType?: string;
+      model?: string;
+    };
     try {
-      formData = await request.formData();
+      body = await request.json();
     } catch {
-      return NextResponse.json(
-        { error: "请求必须是 multipart/form-data（携带 file 字段）" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "请求体必须是 JSON" }, { status: 400 });
     }
 
-    const fileEntry = formData.get("file");
-    if (!fileEntry || typeof fileEntry === "string") {
-      return NextResponse.json({ error: "缺少视频文件（file 字段）" }, { status: 400 });
+    const fileUri = typeof body.fileUri === "string" ? body.fileUri.trim() : "";
+    if (!fileUri) {
+      return NextResponse.json({ error: "缺少 Gemini 文件标识（fileUri）" }, { status: 400 });
     }
-    const file = fileEntry as File;
 
-    const modelEntry = formData.get("model");
+    const geminiName =
+      typeof body.geminiName === "string" && body.geminiName.trim()
+        ? body.geminiName.trim()
+        : geminiNameFromUri(fileUri);
+
+    const fileName =
+      typeof body.fileName === "string" && body.fileName.trim()
+        ? body.fileName.trim()
+        : "video.mp4";
+
+    const mimeType =
+      typeof body.mimeType === "string" && body.mimeType.trim()
+        ? body.mimeType.trim()
+        : inferMimeType(fileName);
+
     const model =
-      typeof modelEntry === "string" && modelEntry.trim()
-        ? modelEntry.trim()
+      typeof body.model === "string" && body.model.trim()
+        ? body.model.trim()
         : "gemini-2.5-flash";
-
-    const originalName = file.name || "video.mp4";
-    const mimeType = file.type || inferMimeType(originalName);
-    const safeName = originalName.replace(/[^\w\u4e00-\u9fa5.-]/g, "_") || "video.mp4";
-    const videoBuffer = Buffer.from(await file.arrayBuffer());
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // 2. 直接上传视频 Buffer 到 Gemini Files API
-    let uploadResult;
-    try {
-      uploadResult = await ai.files.upload({
-        file: new File([new Uint8Array(videoBuffer)], safeName, { type: mimeType }),
-        config: { mimeType, displayName: safeName },
-      });
-    } catch (error) {
-      return NextResponse.json(
-        { error: `上传视频到 Gemini 失败：${error instanceof Error ? error.message : String(error)}` },
-        { status: 500 }
-      );
-    }
-
-    const fileUri = (uploadResult as { uri?: string }).uri;
-    if (!fileUri) {
-      return NextResponse.json({ error: "Gemini 未返回文件标识" }, { status: 500 });
-    }
-
-    // 3. 等待文件处理完成
+    // 2. 等待 Gemini 处理完成（文件由前端已上传，此时状态应为 PROCESSING → ACTIVE）。
     let fileState = "PROCESSING";
-    for (let i = 0; i < 60; i++) {
-      const state = (await ai.files.get({ name: fileUri })) as { state?: string };
+    for (let i = 0; i < 30; i++) {
+      const state = (await ai.files.get({ name: geminiName })) as { state?: string };
       fileState = state.state || "PROCESSING";
       if (fileState === "ACTIVE" || fileState === "FAILED") break;
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     if (fileState === "FAILED") {
       return NextResponse.json({ error: "视频在 Gemini 中处理失败" }, { status: 500 });
@@ -291,13 +289,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "视频处理超时" }, { status: 500 });
     }
 
-    // 4. 调用 Gemini 分析（使用本地成熟提示词）
+    // 3. 调用 Gemini 分析（使用本地成熟提示词，fileData 附带 MIME 类型）。
     let responseText = "";
     try {
       const result = await ai.models.generateContent({
         model,
         contents: [
-          { role: "user", parts: [{ text: ANALYSIS_PROMPT }, { fileData: { fileUri } }] },
+          {
+            role: "user",
+            parts: [{ text: ANALYSIS_PROMPT }, { fileData: { fileUri, mimeType } }],
+          },
         ],
       });
       responseText = result.text ?? "";
@@ -308,7 +309,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. 解析并规整 JSON
+    // 4. 解析并规整 JSON。
     let analysis: Record<string, unknown>;
     try {
       const cleaned = responseText
@@ -323,8 +324,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. 生成 Markdown 报告，直接在响应体中返回（不再上传 Supabase Storage）
-    const reportMarkdown = generateMarkdownReport(analysis, originalName);
+    // 5. 生成 Markdown 报告，直接在响应体中返回。
+    const reportMarkdown = generateMarkdownReport(analysis, fileName);
 
     return NextResponse.json({ analysis, reportMarkdown });
   } catch (error) {
