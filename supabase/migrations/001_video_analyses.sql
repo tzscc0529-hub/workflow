@@ -4,7 +4,10 @@
 CREATE TABLE IF NOT EXISTS public.video_analyses (
   id BIGSERIAL PRIMARY KEY,
   video_name TEXT NOT NULL,
-  analysis_result TEXT,
+  video_url TEXT,
+  analysis_result JSONB,
+  report_markdown TEXT,
+  report_url TEXT,
   tags TEXT[] DEFAULT '{}',
   category TEXT,
   status TEXT DEFAULT 'pending',

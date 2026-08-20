@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  ExternalLink,
   RefreshCw,
   Loader2,
   Filter,
@@ -21,6 +22,8 @@ interface AnalysisRecord {
   video_key: string;
   video_url: string;
   analysis_result: Record<string, unknown> | null;
+  report_markdown: string | null;
+  report_url: string | null;
   tags: string[] | null;
   category: string | null;
   status: string;
@@ -288,16 +291,22 @@ export default function ReportsPage() {
                             <p className="text-sm">{record.category}</p>
                           </div>
                         ) : null}
-                        {analysis.key_scenes && Array.isArray(analysis.key_scenes) ? (
-                          <div className="col-span-3">
-                            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">关键场景</p>
-                            <ul className="list-disc list-inside text-sm space-y-0.5">
-                              {(analysis.key_scenes as string[]).map((scene, i) => (
-                                <li key={i}>{scene}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
+                        {(() => {
+                          const scenes = (analysis as Record<string, unknown>).scenes as string[] | undefined;
+                          if (Array.isArray(scenes) && scenes.length > 0) {
+                            return (
+                              <div className="col-span-3">
+                                <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">关键场景</p>
+                                <ul className="list-disc list-inside text-sm space-y-0.5">
+                                  {scenes.map((scene, i) => (
+                                    <li key={i}>{String(scene)}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                         {analysis.elements ? (
                           <div className="col-span-3">
                             <p className="text-xs text-muted-foreground tracking-widest uppercase mb-1">主要元素</p>
@@ -306,8 +315,8 @@ export default function ReportsPage() {
                         ) : null}
                       </div>
 
-                      {/* Download */}
-                      <div className="mt-4 pt-4 border-t border-border/10 flex gap-3">
+                      {/* Download & Preview */}
+                      <div className="mt-4 pt-4 border-t border-border/10 flex gap-3 flex-wrap">
                         <button
                           onClick={() => {
                             const blob = new Blob([JSON.stringify(analysis, null, 2)], { type: 'application/json' });
@@ -323,6 +332,32 @@ export default function ReportsPage() {
                           <Download className="w-3 h-3" />
                           下载 JSON
                         </button>
+                        {record.report_markdown ? (
+                          <button
+                            onClick={() => {
+                              const blob = new Blob([record.report_markdown || ''], { type: 'text/markdown' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${record.video_name.replace(/\.[^.]+$/, '')}_report.md`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Download className="w-3 h-3" />
+                            下载报告 (Markdown)
+                          </button>
+                        ) : null}
+                        {record.report_url ? (
+                          <button
+                            onClick={() => window.open(record.report_url || '', '_blank')}
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            预览报告
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   )}

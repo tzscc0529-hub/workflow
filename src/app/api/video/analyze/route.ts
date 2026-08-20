@@ -1,167 +1,252 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
-const FILE_PROCESS_TIMEOUT_SECONDS = 1800;
-const POLL_INTERVAL_SECONDS = 5;
+export const runtime = "nodejs";
+export const maxDuration = 300; // 视频分析最长 5 分钟
 
-function stateName(fileObj: Record<string, unknown>): string {
-  const state = fileObj.state as Record<string, string> | undefined;
-  return state?.name ?? String(fileObj.state ?? "");
-}
+const VIDEO_CATEGORIES = ["解说向", "玩法向", "展示向", "剧情演绎", "前贴", "全贴"];
 
-async function waitForProcessing(
-  ai: GoogleGenAI,
-  fileName: string
-): Promise<Record<string, unknown>> {
-  const started = Date.now();
+function buildAnalysisPrompt(): string {
+  return `你是一名专业的视频内容分析师。请仔细观看并分析下面这段视频，然后严格按照 JSON 格式返回分析结果。
 
-  while (true) {
-    const fileObj = (await ai.files.get({ name: fileName })) as unknown as Record<string, unknown>;
-    const currentState = stateName(fileObj);
+请分析以下维度：
+1. summary（摘要）：用 2-3 句话概括视频的核心内容。
+2. category（类别）：从以下类别中选出最贴切的一个：${VIDEO_CATEGORIES.join("、")}。
+3. tags（标签）：提取 3-6 个关键词标签，用于分类检索。
+4. scenes（关键场景）：列出视频中 3-5 个关键画面/镜头，每个场景用一句话描述画面内容及其作用。
+5. style（风格）：判断视频的整体风格（如写实、卡通、影视、纪录片等）。
+6. elements（元素）：识别画面中的主要视觉元素（人物、场景、道具、特效等）。
+7. targetAudience（目标受众）：推测视频面向哪类观众。
 
-    if (currentState === "ACTIVE" || currentState === "") {
-      return fileObj;
-    }
-
-    if (currentState === "FAILED") {
-      const error = fileObj.error as Record<string, string> | undefined;
-      throw new Error(`视频处理失败: ${error?.message ?? "未知错误"}`);
-    }
-
-    if (currentState !== "PROCESSING") {
-      throw new Error(`视频状态异常: ${currentState}`);
-    }
-
-    const elapsed = (Date.now() - started) / 1000;
-    if (elapsed >= FILE_PROCESS_TIMEOUT_SECONDS) {
-      throw new Error(`视频处理超时 (${FILE_PROCESS_TIMEOUT_SECONDS}秒)`);
-    }
-
-    await new Promise((r) =>
-      setTimeout(r, Math.min(POLL_INTERVAL_SECONDS * 1000, Math.max(0, (FILE_PROCESS_TIMEOUT_SECONDS - elapsed) * 1000)))
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
-    const videoFile = formData.get("video") as File | null;
-    const model = (formData.get("model") as string) || "gemini-2.5-flash";
-    const apiKeyOverride = (formData.get("apiKey") as string) || "";
-
-    if (!videoFile) {
-      return NextResponse.json({ error: "请上传视频文件" }, { status: 400 });
-    }
-
-    const key = (
-      apiKeyOverride ||
-      process.env.GEMINI_API_KEY ||
-      process.env.GOOGLE_API_KEY ||
-      ""
-    ).trim();
-
-    if (!key) {
-      return NextResponse.json({ error: "未配置 Gemini API Key" }, { status: 400 });
-    }
-
-    const ai = new GoogleGenAI({ apiKey: key });
-
-    // Step 1: Upload video directly to Gemini Files API
-    const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-
-    const uploadResult = (await ai.files.upload({
-      file: new Blob([videoBuffer], { type: videoFile.type || "video/mp4" }),
-      config: {
-        displayName: videoFile.name,
-      },
-    })) as unknown as Record<string, unknown>;
-
-    const fileUri = uploadResult.uri as string;
-    const fileName = uploadResult.name as string;
-
-    if (!fileUri || !fileName) {
-      return NextResponse.json({ error: "上传到 Gemini 失败" }, { status: 500 });
-    }
-
-    // Step 2: Wait for video processing
-    const processedFile = await waitForProcessing(ai, fileName);
-
-    // Step 3: Analyze with Gemini
-    const systemPrompt = `你是一个专业的视频内容分析师。请仔细分析视频，输出 JSON 格式结果：
-
+只返回 JSON，不要包含 markdown 代码块标记，不要输出任何解释性文字。JSON 结构如下：
 {
-  "summary": "视频概要，一段话概括主要内容",
-  "key_scenes": ["关键场景1", "关键场景2", "关键场景3"],
-  "elements": ["视觉元素1", "视觉元素2"],
-  "style": "视频节奏与风格描述",
-  "tags": ["标签1", "标签2"]
+  "summary": "string",
+  "category": "string",
+  "tags": ["string"],
+  "scenes": ["string"],
+  "style": "string",
+  "elements": ["string"],
+  "targetAudience": "string"
+}`;
 }
 
-标签从以下选择 1-2 个：解说向、玩法向、展示向、剧情演绎、前贴、全贴
-- 解说向：以旁白/语音解说为主，信息密度高
-- 玩法向：展示游戏操作流程、技巧或机制
-- 展示向：以视觉画面展示为核心，强调观赏性
-- 剧情演绎：有明确故事线、角色表演和剧情推进
-- 前贴：适合作为片头/开场引导，时长较短
-- 全贴：完整独立内容，结构完整`;
+function generateMarkdownReport(
+  analysis: Record<string, unknown>,
+  videoName: string,
+): string {
+  const summary = String(analysis.summary ?? "无");
+  const category = String(analysis.category ?? "未分类");
+  const style = String(analysis.style ?? "未知");
+  const targetAudience = String(analysis.targetAudience ?? "未知");
+  const tags = Array.isArray(analysis.tags)
+    ? analysis.tags.map(String).join("、")
+    : "无";
+  const scenes = Array.isArray(analysis.scenes)
+    ? analysis.scenes.map(String)
+    : [];
+  const elements = Array.isArray(analysis.elements)
+    ? analysis.elements.map(String)
+    : [];
 
-    const response = await ai.models.generateContent({
+  const lines: string[] = [];
+  lines.push(`# 视频分析报告`);
+  lines.push("");
+  lines.push(`> 生成时间：${new Date().toLocaleString("zh-CN")}`);
+  lines.push("");
+  lines.push(`## 视频信息`);
+  lines.push("");
+  lines.push(`- **文件名**：${videoName}`);
+  lines.push(`- **类别**：${category}`);
+  lines.push(`- **风格**：${style}`);
+  lines.push(`- **目标受众**：${targetAudience}`);
+  lines.push("");
+  lines.push(`## 内容摘要`);
+  lines.push("");
+  lines.push(summary);
+  lines.push("");
+  lines.push(`## 关键词标签`);
+  lines.push("");
+  lines.push(tags);
+  lines.push("");
+  if (scenes.length > 0) {
+    lines.push(`## 关键场景`);
+    lines.push("");
+    scenes.forEach((scene, i) => {
+      lines.push(`${i + 1}. ${scene}`);
+    });
+    lines.push("");
+  }
+  if (elements.length > 0) {
+    lines.push(`## 视觉元素`);
+    lines.push("");
+    elements.forEach((el) => {
+      lines.push(`- ${el}`);
+    });
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+interface AnalysisBody {
+  videoUrl: string;
+  videoName?: string;
+  model?: string;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = (await req.json()) as AnalysisBody;
+    const { videoUrl, videoName = "video.mp4", model = "gemini-2.5-flash" } = body;
+
+    if (!videoUrl) {
+      return NextResponse.json(
+        { error: "缺少 videoUrl 参数" },
+        { status: 400 },
+      );
+    }
+
+    const apiKey =
+      process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "未配置 GEMINI_API_KEY 环境变量" },
+        { status: 500 },
+      );
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    // 1. 从 Supabase Storage 公共 URL 下载视频
+    const videoResp = await fetch(videoUrl, {
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (!videoResp.ok) {
+      return NextResponse.json(
+        { error: `下载视频失败：HTTP ${videoResp.status}` },
+        { status: 500 },
+      );
+    }
+    const videoBuffer = await videoResp.arrayBuffer();
+    const mimeType =
+      videoResp.headers.get("content-type") || "video/mp4";
+
+    // 2. 上传到 Gemini Files API
+    const fileName = `web_${Date.now()}_${videoName}`;
+    const uploadResult = await ai.files.upload({
+      file: new File([videoBuffer], fileName, { type: mimeType }),
+      config: { mimeType },
+    });
+
+    const fileUri = uploadResult.uri || "";
+    const fileRemoteName = uploadResult.name || "";
+
+    if (!fileUri || !fileRemoteName) {
+      return NextResponse.json(
+        { error: "视频上传到 Gemini 失败" },
+        { status: 500 },
+      );
+    }
+
+    // 3. 等待视频处理完成
+    let fileState = uploadResult.state ?? "PROCESSING";
+    const started = Date.now();
+    const timeoutMs = 300_000;
+    while (fileState === "PROCESSING") {
+      if (Date.now() - started > timeoutMs) {
+        return NextResponse.json(
+          { error: "视频处理超时（超过 5 分钟）" },
+          { status: 500 },
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+      const fileInfo = await ai.files.get({ name: fileRemoteName });
+      fileState = fileInfo.state ?? "ACTIVE";
+    }
+
+    if (fileState === "FAILED") {
+      return NextResponse.json(
+        { error: "视频在 Gemini 服务端解析失败" },
+        { status: 500 },
+      );
+    }
+
+    // 4. 调用 Gemini 分析
+    const result = await ai.models.generateContent({
       model,
       contents: [
-        {
-          role: "user",
-          parts: [
-            { text: systemPrompt },
-            {
-              fileData: {
-                fileUri: (processedFile.uri as string) || fileUri,
-                mimeType: videoFile.type || "video/mp4",
-              },
-            },
-          ],
-        },
+        { fileData: { fileUri, mimeType } },
+        { text: buildAnalysisPrompt() },
       ],
       config: {
-        temperature: 0.3,
-        maxOutputTokens: 32768,
         responseMimeType: "application/json",
+        temperature: 0.2,
       },
     });
 
-    const rawContent = response.text || "";
+    const responseText = result.text?.trim() || "";
+    if (!responseText) {
+      return NextResponse.json({ error: "Gemini 返回空内容" }, { status: 500 });
+    }
 
-    let analysisResult: Record<string, unknown> = {};
+    let analysis: Record<string, unknown>;
     try {
-      analysisResult = JSON.parse(rawContent);
+      analysis = JSON.parse(responseText);
     } catch {
-      const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          analysisResult = JSON.parse(jsonMatch[0]);
-        } catch {
-          analysisResult = { raw: rawContent };
-        }
-      } else {
-        analysisResult = { raw: rawContent };
+      // 尝试从可能带代码块的响应中提取 JSON
+      const cleaned = responseText
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "")
+        .trim();
+      try {
+        analysis = JSON.parse(cleaned);
+      } catch {
+        return NextResponse.json(
+          { error: `Gemini 返回无法解析的内容：${responseText.slice(0, 200)}` },
+          { status: 500 },
+        );
       }
     }
 
-    const tags = (analysisResult.tags as string[]) || [];
-    const primaryCategory = tags.length > 0 ? tags[0] : "未分类";
+    // 5. 生成 Markdown 报告
+    const reportMarkdown = generateMarkdownReport(analysis, videoName);
+
+    // 6. 上传报告到 Supabase Storage（reports 桶）
+    let reportUrl = "";
+    const supabaseUrl = process.env.SUPABASE_URL || "";
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const safeName = videoName.replace(/[^\w\u4e00-\u9fa5.-]/g, "_");
+        const reportPath = `reports/${Date.now()}_${safeName}.md`;
+        const { error: uploadErr } = await supabase.storage
+          .from("reports")
+          .upload(reportPath, reportMarkdown, {
+            contentType: "text/markdown",
+            upsert: true,
+          });
+        if (!uploadErr) {
+          const { data: publicUrl } = supabase.storage
+            .from("reports")
+            .getPublicUrl(reportPath);
+          reportUrl = publicUrl.publicUrl || "";
+        }
+      } catch (reportErr) {
+        // 报告上传失败不阻塞分析结果返回
+        console.error("报告上传失败:", reportErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      analysis: analysisResult,
-      tags,
-      category: primaryCategory,
-      videoName: videoFile.name,
+      analysis,
+      reportMarkdown,
+      reportUrl,
     });
-  } catch (error) {
-    console.error("视频分析失败:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "分析失败" },
-      { status: 500 }
-    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("视频分析失败:", err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -14,7 +14,10 @@ import {
   RotateCcw,
   Brain,
   FileText,
+  Download,
+  Eye,
 } from 'lucide-react';
+import { supabaseClient, isSupabaseConfigured } from '@/lib/supabase-client';
 
 type VideoStatus = 'waiting' | 'uploading' | 'analyzing' | 'completed' | 'failed';
 
@@ -24,8 +27,10 @@ interface VideoItem {
   size: string;
   rawSize: number;
   status: VideoStatus;
+  videoUrl?: string;
   analysisResult?: Record<string, unknown>;
-  tags?: string[];
+  reportUrl?: string;
+  reportMarkdown?: string;
   category?: string;
   error?: string;
 }
@@ -53,6 +58,23 @@ export default function AnalysisPage() {
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const uploadToStorage = useCallback(async (file: File): Promise<string> => {
+    if (!isSupabaseConfigured) {
+      throw new Error('未配置 Supabase 环境变量（NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY）');
+    }
+    const safeName = file.name.replace(/[^\w\u4e00-\u9fa5.-]/g, '_');
+    const path = `videos/${Date.now()}_${safeName}`;
+    const { error } = await supabaseClient.storage.from('videos').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+    if (error) {
+      throw new Error(`上传到 Supabase Storage 失败：${error.message}`);
+    }
+    const { data } = supabaseClient.storage.from('videos').getPublicUrl(path);
+    return data.publicUrl;
+  }, []);
+
   const analyzeVideo = useCallback(async (file: File) => {
     const id = crypto.randomUUID();
     const newVideo: VideoItem = {
@@ -66,31 +88,22 @@ export default function AnalysisPage() {
     setVideoList((list) => [...list, newVideo]);
 
     try {
-      // Step 1: Upload to Gemini & analyze (single API call)
+      // Step 1: 直传 Supabase Storage，拿到公开 URL（绕开 Vercel 4.5MB 请求体限制）
+      const videoUrl = await uploadToStorage(file);
+
+      // Step 2: 调用后端分析（传 URL 而非文件）
       setVideoList((list) =>
-        list.map((v) => (v.id === id ? { ...v, status: 'analyzing' as VideoStatus } : v))
+        list.map((v) => (v.id === id ? { ...v, status: 'analyzing' as VideoStatus, videoUrl } : v))
       );
-
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('model', selectedModel);
-
-      // Load API key from localStorage if saved
-      const savedSettings = typeof window !== 'undefined'
-        ? localStorage.getItem('video_analyst_settings')
-        : null;
-      if (savedSettings) {
-        try {
-          const parsed = JSON.parse(savedSettings);
-          if (parsed.apiKey) {
-            formData.append('apiKey', parsed.apiKey);
-          }
-        } catch { /* ignore */ }
-      }
 
       const analyzeRes = await fetch('/api/video/analyze', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl,
+          videoName: file.name,
+          model: selectedModel,
+        }),
       });
 
       if (!analyzeRes.ok) {
@@ -100,16 +113,20 @@ export default function AnalysisPage() {
 
       const analyzeData = await analyzeRes.json();
 
-      // Step 2: Save to memory
+      // Step 3: 保存到记忆
       try {
         await fetch('/api/video/memory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             videoName: file.name,
+            videoUrl,
             analysisResult: analyzeData.analysis,
-            tags: analyzeData.tags,
-            category: analyzeData.category,
+            reportMarkdown: analyzeData.reportMarkdown,
+            reportUrl: analyzeData.reportUrl,
+            category: analyzeData.analysis?.category,
+            tags: analyzeData.analysis?.tags || [analyzeData.analysis?.category],
+            status: 'completed',
           }),
         });
       } catch {
@@ -123,8 +140,9 @@ export default function AnalysisPage() {
                 ...v,
                 status: 'completed' as VideoStatus,
                 analysisResult: analyzeData.analysis,
-                tags: analyzeData.tags,
-                category: analyzeData.category,
+                reportUrl: analyzeData.reportUrl,
+                reportMarkdown: analyzeData.reportMarkdown,
+                category: typeof analyzeData.analysis?.category === 'string' ? analyzeData.analysis.category : undefined,
               }
             : v
         )
@@ -138,7 +156,7 @@ export default function AnalysisPage() {
         )
       );
     }
-  }, [selectedModel]);
+  }, [selectedModel, uploadToStorage]);
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -157,6 +175,23 @@ export default function AnalysisPage() {
     setVideoList((list) => list.filter((v) => v.id !== id));
   };
 
+  const downloadReport = useCallback(async (video: VideoItem) => {
+    // 优先使用报告直链；否则用 markdown 内容生成 blob 下载
+    if (video.reportUrl) {
+      window.open(video.reportUrl, '_blank');
+      return;
+    }
+    if (video.reportMarkdown) {
+      const blob = new Blob([video.reportMarkdown], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${video.name.replace(/\.[^.]+$/, '')}_分析报告.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, []);
+
   return (
     <AppLayout>
       <div className="max-w-6xl space-y-12">
@@ -168,7 +203,7 @@ export default function AnalysisPage() {
             视频分析
           </h1>
           <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-            上传本地视频 → 直接发送至 Gemini 分析 → 自动贴标签 → 存入记忆库
+            本地视频直传 Supabase Storage → 后端下载并发送 Gemini 分析 → 自动贴标签 → 生成报告
           </p>
         </div>
 
@@ -191,8 +226,13 @@ export default function AnalysisPage() {
                 拖拽本地视频文件到此处，或点击选择
               </p>
               <p className="text-xs text-muted-foreground">
-                支持 MP4 · MOV · AVI · MKV · WebM 格式
+                支持 MP4 · MOV · AVI · MKV · WebM 格式（大文件直传不再受体积限制）
               </p>
+              {!isSupabaseConfigured && (
+                <p className="text-xs text-destructive mt-2">
+                  未配置 Supabase 环境变量，无法上传视频
+                </p>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -222,7 +262,7 @@ export default function AnalysisPage() {
                   <FileVideo className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">暂无视频</p>
                   <p className="text-xs text-muted-foreground/60 mt-1">
-                    选择本地视频文件后，将直接发送至 Gemini 进行 AI 分析
+                    选择本地视频文件后，将直传云端并调用 Gemini 进行 AI 分析
                   </p>
                 </div>
               ) : (
@@ -242,23 +282,18 @@ export default function AnalysisPage() {
                           </div>
                           <div className="flex items-center gap-4">
                             <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 ${status.bgClass} ${status.className}`}>
-                              <StatusIcon className={`w-3 h-3 ${video.status === 'analyzing' ? 'animate-spin' : ''}`} />
+                              <StatusIcon className={`w-3 h-3 ${video.status === 'analyzing' || video.status === 'uploading' ? 'animate-spin' : ''}`} />
                               {status.label}
                             </span>
-                            {video.status === 'completed' && video.tags && video.tags.length > 0 && (
-                              <div className="flex gap-1">
-                                {video.tags.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 bg-primary text-primary-foreground"
-                                  >
-                                    <Tag className="w-2.5 h-2.5" />
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
+                            {video.status === 'completed' && video.category && (
+                              <span
+                                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 bg-primary text-primary-foreground"
+                              >
+                                <Tag className="w-2.5 h-2.5" />
+                                {video.category}
+                              </span>
                             )}
-                            {video.status !== 'analyzing' && (
+                            {video.status !== 'analyzing' && video.status !== 'uploading' && (
                               <button
                                 onClick={() => handleRemoveVideo(video.id)}
                                 className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors"
@@ -276,9 +311,35 @@ export default function AnalysisPage() {
 
                         {video.status === 'completed' && video.analysisResult && (
                           <div className="mt-4 border-t border-border/20 pt-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <FileText className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground tracking-widest uppercase">分析结果</span>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground tracking-widest uppercase">分析结果</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {(video.reportUrl || video.reportMarkdown) && (
+                                  <>
+                                    <button
+                                      onClick={() => downloadReport(video)}
+                                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-border/30 hover:bg-muted transition-colors"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                      下载报告
+                                    </button>
+                                    {video.reportUrl && (
+                                      <a
+                                        href={video.reportUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-border/30 hover:bg-muted transition-colors"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                        预览报告
+                                      </a>
+                                    )}
+                                  </>
+                                )}
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-xs">
                               {video.analysisResult.summary ? (

@@ -40,12 +40,13 @@ export async function POST(request: NextRequest) {
       .from("video_analyses")
       .insert({
         video_name: body.videoName,
-        video_key: body.videoKey,
         video_url: body.videoUrl,
         analysis_result: body.analysisResult,
+        report_markdown: body.reportMarkdown,
+        report_url: body.reportUrl,
         tags: body.tags,
         category: body.category,
-        status: "completed",
+        status: body.status || "completed",
       })
       .select()
       .single();
