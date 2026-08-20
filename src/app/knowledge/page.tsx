@@ -15,7 +15,7 @@ import {
   Loader2,
   HardDrive,
 } from 'lucide-react';
-import { getKnowledgeSupabase } from '@/storage/knowledge-supabase';
+import { getKnowledgeSupabase, isSupabaseConfigured } from '@/storage/knowledge-supabase';
 
 interface HeroRecord {
   id: string;
@@ -80,6 +80,13 @@ export default function KnowledgePage() {
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (!isSupabaseConfigured) {
+      setError(
+        'Supabase 尚未连接：请在环境变量中配置 NEXT_PUBLIC_SUPABASE_URL 与 NEXT_PUBLIC_SUPABASE_ANON_KEY（anon public key，而非 project ref）。'
+      );
+      setLoading(false);
+      return;
+    }
     try {
       const [heroRes, missionRes, treasureRes, dialogueRes] = await Promise.all([
         supabase.from('hero').select('*'),

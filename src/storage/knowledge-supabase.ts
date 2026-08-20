@@ -1,18 +1,9 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseClient, isSupabaseConfigured } from '@/lib/supabase-client';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
-
-let client: SupabaseClient | null = null;
-
+// 知识库复用前端 Supabase 客户端（使用 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY）
 export function getKnowledgeSupabase(): SupabaseClient {
-  if (!client) {
-    client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-  }
-  return client;
+  return supabaseClient;
 }
+
+export { isSupabaseConfigured };
