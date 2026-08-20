@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="https://lf-code-agent.coze.cn/obj/x-ai-cn/fonts/google/google-all-fonts.css" rel="stylesheet"/>
+
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/tailwindcss/tailwindcss-browser-4.2.4.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      /* === 品牌色 === */
+      --color-primary:              #080808;
+      --color-primary-container:    #D8D1C4;
+      --color-on-primary:           #F4F1EA;
+      /* === 背景 / 表面 === */
+      --color-background:                 #F4F1EA;
+      --color-surface-container-lowest:   #F9F7F3;
+      --color-surface:                    #F4F1EA;
+      --color-surface-container:          #EDE9E0;
+      --color-surface-container-high:     #E5E0D6;
+      --color-surface-container-highest:  #DDD7CC;
+      /* === 文字 === */
+      --color-on-surface:           #111111;
+      --color-on-surface-variant:   #6B665E;
+      /* === 功能色 === */
+      --color-success:  #2d6a4f;
+      --color-error:    #8b2500;
+      --color-warning:  #7a5d00;
+      /* === 边框 === */
+      --color-outline:          #D8D1C4;
+      --color-outline-variant:  #D8D1C4;
+      /* === 圆角 === */
+      --radius-sm:   0rem;
+      --radius-md:   0rem;
+      --radius-lg:   0rem;
+      --radius-xl:   0rem;
+      --radius-2xl:  0rem;
+      --radius-full: 9999px;
+      /* === 阴影 === */
+      --shadow-card:   0 1px 3px rgba(0,0,0,0.10);
+      --shadow-float:  0 4px 12px rgba(0,0,0,0.08);
+      --shadow-dialog: 0 8px 24px rgba(0,0,0,0.10);
+      /* === 字体 === */
+      --font-sans: "Georgia", "Noto Serif SC", serif;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('error', function (e) {
+      const img = e.target;
+      if (img.tagName !== 'IMG' || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = img.getAttribute('data-category') || '其他';
+      const alt = img.getAttribute('alt') || '';
+      const label = esc(alt.length > 8 ? alt.slice(0, 8) + '…' : alt);
+      const icons = { '人物': '👤', '自然风景': '🏞', '动物': '🐾', '建筑城市': '🏙', '运动体育': '⚽', '交通工具': '🚗', '食物': '🍽', '服饰时尚': '👗', '商业科技': '💼', '游戏娱乐': '🎮', '艺术': '🎨', '其他': '🖼' };
+      const icon = icons[cat] || '🖼';
+      const w = img.width || 400, h = img.height || 300;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="45%" text-anchor="middle" font-size="${Math.min(w, h) * 0.18}" dominant-baseline="central">${icon}</text><text x="50%" y="68%" text-anchor="middle" font-size="${Math.min(w, h) * 0.07}" fill="%239ca3af" font-family="system-ui,sans-serif" dominant-baseline="central">${label}</text></svg>`;
+      img.src = 'data:image/svg+xml,' + svg;
+    }, true);
+  </script>
+</head>
+
+<body class="bg-background text-on-surface font-sans min-h-screen">
+
+  <!-- @nav:start 导航组件 -->
+  <header class="bg-surface-container-lowest sticky top-0 z-40 h-16 flex items-center justify-between px-6 border-b border-outline/30">
+    <div class="flex items-center gap-3">
+      <i data-lucide="film" class="text-primary w-5 h-5"></i>
+      <span class="text-lg tracking-wide text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">Video Skeleton Analyst</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-on-surface-variant tracking-widest uppercase">v2.0</span>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary text-xs font-semibold">初</div>
+    </div>
+  </header>
+
+  <div class="flex" style="height: calc(100vh - 4rem)">
+    <aside class="w-56 shrink-0 bg-surface-container-lowest border-r border-outline/30 overflow-y-auto">
+      <div class="p-4 space-y-0.5">
+        <a href="home.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>概览
+        </a>
+        <a href="analysis.html" class="flex items-center gap-3 px-3 py-2.5 bg-primary text-on-primary text-sm tracking-wide" aria-current="page" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="video" class="w-4 h-4"></i>视频分析
+        </a>
+        <a href="reports.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="file-text" class="w-4 h-4"></i>分析报告
+        </a>
+        <a href="knowledge.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="database" class="w-4 h-4"></i>知识库
+        </a>
+        <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="settings" class="w-4 h-4"></i>系统配置
+        </a>
+      </div>
+    </aside>
+
+    <!-- @main-content:start -->
+    <main class="flex-1 min-w-0 overflow-y-auto bg-background p-8">
+
+      <!-- 页面标题 -->
+      <div class="mb-8">
+        <h1 class="text-2xl font-bold text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">视频分析</h1>
+        <p class="text-sm text-on-surface-variant mt-1">上传视频文件，配置 AI 分析参数，获取深度内容洞察</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- ========== 左侧：上传区域 + 参数配置 ========== -->
+        <div class="lg:col-span-2 space-y-8">
+
+          <!-- 文件上传区域 -->
+          <div class="bg-surface shadow-card p-6">
+            <h2 class="text-base font-semibold text-on-surface mb-4" style="font-family: 'Playfair Display', Georgia, serif;">上传视频</h2>
+
+            <!-- 拖拽上传区 -->
+            <div id="upload-dropzone" class="border-2 border-dashed border-outline/40 bg-surface-container rounded-md p-10 text-center cursor-pointer transition-colors hover:border-primary/30 hover:bg-surface-container-high">
+              <i data-lucide="upload-cloud" class="w-10 h-10 text-on-surface-variant/40 mx-auto mb-3"></i>
+              <p class="text-sm text-on-surface font-medium mb-1">拖拽视频文件到此处，或点击选择文件</p>
+              <p class="text-xs text-on-surface-variant">支持 MP4 / MOV / AVI / MKV / WebM 格式，单文件最大 2GB</p>
+              <input type="file" id="file-input" class="hidden" accept=".mp4,.mov,.avi,.mkv,.webm" multiple />
+            </div>
+
+            <!-- 上传进度条（默认隐藏） -->
+            <div id="upload-progress" class="mt-4 hidden">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs text-on-surface-variant" id="progress-filename">正在上传：sample.mp4</span>
+                <span class="text-xs text-on-surface-variant" id="progress-percent">45%</span>
+              </div>
+              <div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+                <div id="progress-bar" class="bg-primary h-full transition-all duration-300" style="width: 45%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 上传模式选择 -->
+          <div class="bg-surface shadow-card p-6">
+            <h2 class="text-base font-semibold text-on-surface mb-4" style="font-family: 'Playfair Display', Georgia, serif;">上传模式</h2>
+            <div class="grid grid-cols-2 gap-3">
+              <!-- 模式：auto -->
+              <label class="flex items-start gap-3 p-4 bg-surface-container rounded-md cursor-pointer hover:bg-surface-container-high transition-colors" id="mode-label-auto">
+                <input type="radio" name="upload-mode" value="auto" class="mt-0.5 accent-primary" checked />
+                <div>
+                  <span class="text-sm font-semibold text-on-surface block">Auto</span>
+                  <span class="text-xs text-on-surface-variant mt-0.5 block">自动检测最佳编码参数，平衡质量与体积</span>
+                </div>
+              </label>
+              <!-- 模式：original -->
+              <label class="flex items-start gap-3 p-4 bg-surface-container rounded-md cursor-pointer hover:bg-surface-container-high transition-colors" id="mode-label-original">
+                <input type="radio" name="upload-mode" value="original" class="mt-0.5 accent-primary" />
+                <div>
+                  <span class="text-sm font-semibold text-on-surface block">Original</span>
+                  <span class="text-xs text-on-surface-variant mt-0.5 block">保留原始编码，不做任何转码处理</span>
+                </div>
+              </label>
+              <!-- 模式：compressed -->
+              <label class="flex items-start gap-3 p-4 bg-surface-container rounded-md cursor-pointer hover:bg-surface-container-high transition-colors" id="mode-label-compressed">
+                <input type="radio" name="upload-mode" value="compressed" class="mt-0.5 accent-primary" />
+                <div>
+                  <span class="text-sm font-semibold text-on-surface block">Compressed</span>
+                  <span class="text-xs text-on-surface-variant mt-0.5 block">智能压缩以减小体积，适合网络传输</span>
+                </div>
+              </label>
+              <!-- 模式：direct -->
+              <label class="flex items-start gap-3 p-4 bg-surface-container rounded-md cursor-pointer hover:bg-surface-container-high transition-colors" id="mode-label-direct">
+                <input type="radio" name="upload-mode" value="direct" class="mt-0.5 accent-primary" />
+                <div>
+                  <span class="text-sm font-semibold text-on-surface block">Direct</span>
+                  <span class="text-xs text-on-surface-variant mt-0.5 block">直传模式，跳过预处理，最快速度</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 分析参数配置 -->
+          <div class="bg-surface shadow-card p-6">
+            <h2 class="text-base font-semibold text-on-surface mb-4" style="font-family: 'Playfair Display', Georgia, serif;">分析参数</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <!-- 模型选择 -->
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-on-surface-variant uppercase tracking-wide">AI 模型</label>
+                <select id="param-model" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors appearance-none cursor-pointer" style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B665E' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 0.75rem center;">
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                </select>
+              </div>
+
+              <!-- 最大输出 Token -->
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-on-surface-variant uppercase tracking-wide">最大输出 Token</label>
+                <input type="number" id="param-max-tokens" value="4096" min="256" max="32768" step="256" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors" />
+              </div>
+
+              <!-- 超时时间 -->
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-on-surface-variant uppercase tracking-wide">超时时间（秒）</label>
+                <input type="number" id="param-timeout" value="300" min="30" max="3600" step="30" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors" />
+              </div>
+
+              <!-- 重试次数 -->
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-on-surface-variant uppercase tracking-wide">重试次数</label>
+                <input type="number" id="param-retries" value="3" min="0" max="10" step="1" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors" />
+              </div>
+
+              <!-- 分析粒度 -->
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-on-surface-variant uppercase tracking-wide">分析粒度</label>
+                <select id="param-granularity" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors appearance-none cursor-pointer" style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B665E' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 0.75rem center;">
+                  <option value="frame">逐帧分析</option>
+                  <option value="scene" selected>场景级分析</option>
+                  <option value="segment">段落级分析</option>
+                  <option value="summary">摘要级分析</option>
+                </select>
+              </div>
+
+              <!-- 输出语言 -->
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-on-surface-variant uppercase tracking-wide">输出语言</label>
+                <select id="param-language" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors appearance-none cursor-pointer" style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B665E' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 0.75rem center;">
+                  <option value="zh-CN" selected>简体中文</option>
+                  <option value="en">English</option>
+                  <option value="ja">日本語</option>
+                </select>
+              </div>
+
+            </div>
+
+            <!-- 开始分析按钮 -->
+            <div class="mt-6 flex items-center gap-3">
+              <button id="btn-start-analysis" class="bg-primary text-on-primary px-6 py-2.5 text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all inline-flex items-center gap-2 tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+                <i data-lucide="play" class="w-4 h-4"></i>开始分析
+              </button>
+              <button id="btn-reset" class="bg-surface-container text-on-surface px-4 py-2.5 text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all inline-flex items-center gap-2">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>重置
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ========== 右侧：已上传视频列表 ========== -->
+        <div class="lg:col-span-1 space-y-4">
+          <div class="bg-surface shadow-card p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-base font-semibold text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">已上传视频</h2>
+              <span class="text-xs text-on-surface-variant">共 5 个</span>
+            </div>
+
+            <div id="video-list" class="space-y-3">
+
+              <!-- 列表-视频1：已完成 -->
+              <div class="video-item flex items-start gap-3 p-3 bg-surface-container rounded-md">
+                <div class="w-10 h-10 shrink-0 bg-surface-container-high rounded-md flex items-center justify-center">
+                  <i data-lucide="film" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-on-surface truncate">产品发布会_完整版.mp4</p>
+                  <p class="text-xs text-on-surface-variant mt-0.5">1.2 GB</p>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-success/15 text-success mt-1">已完成</span>
+                </div>
+              </div>
+
+              <!-- 列表-视频2：处理中 -->
+              <div class="video-item flex items-start gap-3 p-3 bg-surface-container rounded-md">
+                <div class="w-10 h-10 shrink-0 bg-surface-container-high rounded-md flex items-center justify-center">
+                  <i data-lucide="film" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-on-surface truncate">客户访谈_原始素材.mov</p>
+                  <p class="text-xs text-on-surface-variant mt-0.5">856 MB</p>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-warning/15 text-warning mt-1">处理中</span>
+                </div>
+              </div>
+
+              <!-- 列表-视频3：等待处理 -->
+              <div class="video-item flex items-start gap-3 p-3 bg-surface-container rounded-md">
+                <div class="w-10 h-10 shrink-0 bg-surface-container-high rounded-md flex items-center justify-center">
+                  <i data-lucide="film" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-on-surface truncate">培训课程_第三讲.avi</p>
+                  <p class="text-xs text-on-surface-variant mt-0.5">2.4 GB</p>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-on-surface-variant/15 text-on-surface-variant mt-1">等待处理</span>
+                </div>
+              </div>
+
+              <!-- 列表-视频4：已完成 -->
+              <div class="video-item flex items-start gap-3 p-3 bg-surface-container rounded-md">
+                <div class="w-10 h-10 shrink-0 bg-surface-container-high rounded-md flex items-center justify-center">
+                  <i data-lucide="film" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-on-surface truncate">年度总结_VFX样片.webm</p>
+                  <p class="text-xs text-on-surface-variant mt-0.5">320 MB</p>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-success/15 text-success mt-1">已完成</span>
+                </div>
+              </div>
+
+              <!-- 列表-视频5：失败 -->
+              <div class="video-item flex items-start gap-3 p-3 bg-surface-container rounded-md">
+                <div class="w-10 h-10 shrink-0 bg-surface-container-high rounded-md flex items-center justify-center">
+                  <i data-lucide="film" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-on-surface truncate">户外广告_4K测试.mkv</p>
+                  <p class="text-xs text-on-surface-variant mt-0.5">4.1 GB</p>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-error/15 text-error mt-1">失败</span>
+                </div>
+              </div>
+
+            </div>
+
+            <button id="btn-clear-completed" class="mt-4 w-full bg-surface-container text-on-surface-variant px-3 py-2 text-xs font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors inline-flex items-center justify-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3 h-3"></i>清除已完成
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+    <!-- @main-content:end -->
+  </div>
+
+  <script>
+    $(function() {
+
+      // ===== 拖拽上传区域点击触发文件选择 =====
+      $('#upload-dropzone').on('click', function(e) {
+        if (e.target.tagName !== 'INPUT') {
+          $('#file-input').trigger('click');
+        }
+      });
+
+      // ===== 文件选择后的处理 =====
+      $('#file-input').on('change', function() {
+        const files = this.files;
+        if (files && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            console.log('已选择文件:', file.name, '大小:', (file.size / (1024 * 1024)).toFixed(1) + 'MB');
+
+            // 模拟上传进度
+            simulateUpload(file.name);
+          }
+          // 重置 input 以允许重复选择同一文件
+          $(this).val('');
+        }
+      });
+
+      // ===== 拖拽事件处理 =====
+      $('#upload-dropzone').on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('border-primary/50 bg-surface-container-high');
+      });
+
+      $('#upload-dropzone').on('dragleave', function(e) {
+        e.preventDefault();
+        $(this).removeClass('border-primary/50 bg-surface-container-high');
+      });
+
+      $('#upload-dropzone').on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('border-primary/50 bg-surface-container-high');
+        const files = e.originalEvent.dataTransfer.files;
+        if (files && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            console.log('拖拽上传文件:', file.name, '大小:', (file.size / (1024 * 1024)).toFixed(1) + 'MB');
+            simulateUpload(file.name);
+          }
+        }
+      });
+
+      // ===== 模拟上传进度 =====
+      function simulateUpload(filename) {
+        const $progress = $('#upload-progress');
+        const $bar = $('#progress-bar');
+        const $name = $('#progress-filename');
+        const $percent = $('#progress-percent');
+
+        $name.text('正在上传：' + filename);
+        $progress.removeClass('hidden');
+        $bar.css('width', '0%');
+        $percent.text('0%');
+
+        let progress = 0;
+        const interval = setInterval(function() {
+          progress += Math.random() * 15 + 5;
+          if (progress >= 100) {
+            progress = 100;
+            clearInterval(interval);
+            $bar.css('width', '100%');
+            $percent.text('100%');
+
+            // 上传完成后添加新视频条目到列表
+            addVideoToList(filename);
+
+            // 延迟隐藏进度条
+            setTimeout(function() {
+              $progress.addClass('hidden');
+            }, 1500);
+          } else {
+            $bar.css('width', progress + '%');
+            $percent.text(Math.floor(progress) + '%');
+          }
+        }, 300);
+      }
+
+      // ===== 添加视频到列表 =====
+      function addVideoToList(filename) {
+        const sizes = ['128 MB', '256 MB', '512 MB', '768 MB', '1.1 GB'];
+        const randomSize = sizes[Math.floor(Math.random() * sizes.length)];
+        const itemHtml = `
+          <div class="video-item flex items-start gap-3 p-3 bg-surface-container rounded-md">
+            <div class="w-10 h-10 shrink-0 bg-surface-container-high rounded-md flex items-center justify-center">
+              <i data-lucide="film" class="w-4 h-4 text-on-surface-variant"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-on-surface truncate">${filename}</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">${randomSize}</p>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-on-surface-variant/15 text-on-surface-variant mt-1">等待处理</span>
+            </div>
+          </div>
+        `;
+        $('#video-list').append(itemHtml);
+        lucide.createIcons();
+      }
+
+      // ===== 开始分析按钮 =====
+      $('#btn-start-analysis').on('click', function() {
+        const model = $('#param-model').val();
+        const maxTokens = $('#param-max-tokens').val();
+        const timeout = $('#param-timeout').val();
+        const retries = $('#param-retries').val();
+        const granularity = $('#param-granularity').val();
+        const language = $('#param-language').val();
+        const mode = $('input[name="upload-mode"]:checked').val();
+
+        console.log('开始分析请求 - 模型:', model, 'Token:', maxTokens, '超时:', timeout + 's', '重试:', retries, '粒度:', granularity, '语言:', language, '模式:', mode);
+
+        // 将等待处理的视频状态更新为"处理中"
+        $('#video-list .video-item').each(function() {
+          const $badge = $(this).find('span');
+          if ($badge.text().trim() === '等待处理') {
+            $badge.removeClass('bg-on-surface-variant/15 text-on-surface-variant')
+                  .addClass('bg-warning/15 text-warning')
+                  .text('处理中');
+          }
+        });
+
+        alert('分析任务已提交！\n\n模型：' + model + '\nToken：' + maxTokens + '\n超时：' + timeout + 's\n重试：' + retries + '次\n粒度：' + granularity + '\n语言：' + language + '\n模式：' + mode);
+      });
+
+      // ===== 重置按钮 =====
+      $('#btn-reset').on('click', function() {
+        $('#param-model').val('gemini-2.5-flash');
+        $('#param-max-tokens').val(4096);
+        $('#param-timeout').val(300);
+        $('#param-retries').val(3);
+        $('#param-granularity').val('scene');
+        $('#param-language').val('zh-CN');
+        $('input[name="upload-mode"][value="auto"]').prop('checked', true);
+        console.log('参数已重置为默认值');
+      });
+
+      // ===== 清除已完成视频 =====
+      $('#btn-clear-completed').on('click', function() {
+        $('#video-list .video-item').each(function() {
+          const $badge = $(this).find('span');
+          if ($badge.text().trim() === '已完成') {
+            $(this).remove();
+          }
+        });
+        console.log('已清除所有已完成状态的视频');
+      });
+
+    });
+  </script>
+
+  <script>lucide.createIcons();</script>
+</body>
+
+</html>

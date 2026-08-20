@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="https://lf-code-agent.coze.cn/obj/x-ai-cn/fonts/google/google-all-fonts.css" rel="stylesheet"/>
+
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/tailwindcss/tailwindcss-browser-4.2.4.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      /* === 品牌色 === */
+      --color-primary:              #080808;
+      --color-primary-container:    #D8D1C4;
+      --color-on-primary:           #F4F1EA;
+      /* === 背景 / 表面 === */
+      --color-background:                 #F4F1EA;
+      --color-surface-container-lowest:   #F9F7F3;
+      --color-surface:                    #F4F1EA;
+      --color-surface-container:          #EDE9E0;
+      --color-surface-container-high:     #E5E0D6;
+      --color-surface-container-highest:  #DDD7CC;
+      /* === 文字 === */
+      --color-on-surface:           #111111;
+      --color-on-surface-variant:   #6B665E;
+      /* === 功能色 === */
+      --color-success:  #2d6a4f;
+      --color-error:    #8b2500;
+      --color-warning:  #7a5d00;
+      /* === 边框 === */
+      --color-outline:          #D8D1C4;
+      --color-outline-variant:  #D8D1C4;
+      /* === 圆角 === */
+      --radius-sm:   0rem;
+      --radius-md:   0rem;
+      --radius-lg:   0rem;
+      --radius-xl:   0rem;
+      --radius-2xl:  0rem;
+      --radius-full: 9999px;
+      /* === 阴影 === */
+      --shadow-card:   0 1px 3px rgba(0,0,0,0.10);
+      --shadow-float:  0 4px 12px rgba(0,0,0,0.08);
+      --shadow-dialog: 0 8px 24px rgba(0,0,0,0.10);
+      /* === 字体 === */
+      --font-sans: "Georgia", "Noto Serif SC", serif;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('error', function (e) {
+      const img = e.target;
+      if (img.tagName !== 'IMG' || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = img.getAttribute('data-category') || '其他';
+      const alt = img.getAttribute('alt') || '';
+      const label = esc(alt.length > 8 ? alt.slice(0, 8) + '…' : alt);
+      const icons = { '人物': '👤', '自然风景': '🏞', '动物': '🐾', '建筑城市': '🏙', '运动体育': '⚽', '交通工具': '🚗', '食物': '🍽', '服饰时尚': '👗', '商业科技': '💼', '游戏娱乐': '🎮', '艺术': '🎨', '其他': '🖼' };
+      const icon = icons[cat] || '🖼';
+      const w = img.width || 400, h = img.height || 300;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="45%" text-anchor="middle" font-size="${Math.min(w, h) * 0.18}" dominant-baseline="central">${icon}</text><text x="50%" y="68%" text-anchor="middle" font-size="${Math.min(w, h) * 0.07}" fill="%239ca3af" font-family="system-ui,sans-serif" dominant-baseline="central">${label}</text></svg>`;
+      img.src = 'data:image/svg+xml,' + svg;
+    }, true);
+  </script>
+</head>
+
+<body class="bg-background text-on-surface font-sans min-h-screen">
+
+  <!-- @nav:start 导航组件，不需要的页面则不要复制此段（从 @nav:start 到 @nav:end） -->
+  <header class="bg-surface-container-lowest sticky top-0 z-40 h-16 flex items-center justify-between px-6 border-b border-outline/30">
+    <div class="flex items-center gap-3">
+      <i data-lucide="film" class="text-primary w-5 h-5"></i>
+      <span class="text-lg tracking-wide text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">Video Skeleton Analyst</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-on-surface-variant tracking-widest uppercase">v2.0</span>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary text-xs font-semibold">初</div>
+    </div>
+  </header>
+
+  <div class="flex" style="height: calc(100vh - 4rem)">
+    <aside class="w-56 shrink-0 bg-surface-container-lowest border-r border-outline/30 overflow-y-auto">
+      <div class="p-4 space-y-0.5">
+        <a href="home.html" class="flex items-center gap-3 px-3 py-2.5 bg-primary text-on-primary text-sm tracking-wide" aria-current="page" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>概览
+        </a>
+        <a href="analysis.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="video" class="w-4 h-4"></i>视频分析
+        </a>
+        <a href="reports.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="file-text" class="w-4 h-4"></i>分析报告
+        </a>
+        <a href="knowledge.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="database" class="w-4 h-4"></i>知识库
+        </a>
+        <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="settings" class="w-4 h-4"></i>系统配置
+        </a>
+      </div>
+    </aside>
+
+    <!-- @main-content:start -->
+    <main class="flex-1 min-w-0 overflow-y-auto bg-background p-8">
+
+      <!-- 页面标题区 -->
+      <div class="mb-10">
+        <h1 class="text-2xl font-bold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">概览</h1>
+        <p class="text-sm text-on-surface-variant mt-1 tracking-wide">视频骨架分析平台 · 仪表盘</p>
+      </div>
+
+      <!-- 统计卡片区 -->
+      <section class="grid grid-cols-4 gap-6 mb-12">
+        <!-- 卡片-已分析视频数 -->
+        <div class="bg-surface shadow-card px-5 py-6">
+          <p class="text-xs text-on-surface-variant uppercase tracking-widest mb-3">已分析视频</p>
+          <p class="text-5xl font-bold text-on-surface tracking-tight" style="font-family: 'Playfair Display', Georgia, serif;">248</p>
+          <p class="text-xs text-on-surface-variant mt-2">本月新增 <span class="text-on-surface font-semibold">+32</span></p>
+        </div>
+        <!-- 卡片-待处理任务数 -->
+        <div class="bg-surface shadow-card px-5 py-6">
+          <p class="text-xs text-on-surface-variant uppercase tracking-widest mb-3">待处理任务</p>
+          <p class="text-5xl font-bold text-on-surface tracking-tight" style="font-family: 'Playfair Display', Georgia, serif;">7</p>
+          <p class="text-xs text-on-surface-variant mt-2">3 个队列中 · 4 个暂停</p>
+        </div>
+        <!-- 卡片-报告总数 -->
+        <div class="bg-surface shadow-card px-5 py-6">
+          <p class="text-xs text-on-surface-variant uppercase tracking-widest mb-3">分析报告</p>
+          <p class="text-5xl font-bold text-on-surface tracking-tight" style="font-family: 'Playfair Display', Georgia, serif;">186</p>
+          <p class="text-xs text-on-surface-variant mt-2">生成率 <span class="text-on-surface font-semibold">93.5%</span></p>
+        </div>
+        <!-- 卡片-知识库条目数 -->
+        <div class="bg-surface shadow-card px-5 py-6">
+          <p class="text-xs text-on-surface-variant uppercase tracking-widest mb-3">知识库条目</p>
+          <p class="text-5xl font-bold text-on-surface tracking-tight" style="font-family: 'Playfair Display', Georgia, serif;">1,024</p>
+          <p class="text-xs text-on-surface-variant mt-2">涵盖 <span class="text-on-surface font-semibold">47</span> 个分类</p>
+        </div>
+      </section>
+
+      <!-- 下半区：最近活动 + 快速操作 -->
+      <div class="grid grid-cols-3 gap-8 mb-12">
+        <!-- 最近分析活动列表 -->
+        <section class="col-span-2">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">最近分析活动</h2>
+            <a href="reports.html" class="text-xs text-on-surface-variant hover:text-on-surface transition-colors tracking-wide">查看全部 →</a>
+          </div>
+          <div class="bg-surface shadow-card overflow-hidden">
+            <!-- 表头 -->
+            <div class="grid grid-cols-4 px-5 py-3 bg-surface-container text-xs font-semibold text-on-surface-variant uppercase tracking-widest">
+              <span>视频名称</span>
+              <span>状态</span>
+              <span>分析时间</span>
+              <span>时长</span>
+            </div>
+            <div class="divide-y divide-outline-variant/30">
+              <!-- 活动-1 -->
+              <div class="grid grid-cols-4 px-5 py-3.5 hover:bg-surface-container/50 transition-colors items-center">
+                <span class="text-sm font-medium text-on-surface">都市夜景延时摄影</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-success/15 text-success w-fit">已完成</span>
+                <span class="text-xs text-on-surface-variant">2025-01-22 14:30</span>
+                <span class="text-xs text-on-surface-variant">02:48</span>
+              </div>
+              <!-- 活动-2 -->
+              <div class="grid grid-cols-4 px-5 py-3.5 hover:bg-surface-container/50 transition-colors items-center">
+                <span class="text-sm font-medium text-on-surface">海浪拍岸慢动作</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-warning/15 text-warning w-fit">进行中</span>
+                <span class="text-xs text-on-surface-variant">2025-01-22 13:15</span>
+                <span class="text-xs text-on-surface-variant">05:12</span>
+              </div>
+              <!-- 活动-3 -->
+              <div class="grid grid-cols-4 px-5 py-3.5 hover:bg-surface-container/50 transition-colors items-center">
+                <span class="text-sm font-medium text-on-surface">产品发布会实录</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-success/15 text-success w-fit">已完成</span>
+                <span class="text-xs text-on-surface-variant">2025-01-22 10:02</span>
+                <span class="text-xs text-on-surface-variant">18:34</span>
+              </div>
+              <!-- 活动-4 -->
+              <div class="grid grid-cols-4 px-5 py-3.5 hover:bg-surface-container/50 transition-colors items-center">
+                <span class="text-sm font-medium text-on-surface">森林徒步 Vlog</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-error/15 text-error w-fit">失败</span>
+                <span class="text-xs text-on-surface-variant">2025-01-21 18:45</span>
+                <span class="text-xs text-on-surface-variant">12:06</span>
+              </div>
+              <!-- 活动-5 -->
+              <div class="grid grid-cols-4 px-5 py-3.5 hover:bg-surface-container/50 transition-colors items-center">
+                <span class="text-sm font-medium text-on-surface">无人机航拍山脉</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-success/15 text-success w-fit">已完成</span>
+                <span class="text-xs text-on-surface-variant">2025-01-21 09:20</span>
+                <span class="text-xs text-on-surface-variant">08:15</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 快速操作区 -->
+        <section class="col-span-1">
+          <h2 class="text-base font-semibold text-on-surface mb-5 tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">快速操作</h2>
+          <div class="bg-primary shadow-card p-6">
+            <i data-lucide="plus-circle" class="w-8 h-8 text-on-primary mb-4"></i>
+            <p class="text-sm text-on-primary/80 tracking-wide mb-1">开始新的视频骨架分析</p>
+            <p class="text-xs text-on-primary/50 tracking-wide mb-6">支持 MP4、MOV、AVI 格式，最大 2GB</p>
+            <a id="btn-new-analysis" href="analysis.html" class="inline-flex items-center gap-2 bg-on-primary text-primary px-5 py-2.5 text-sm font-semibold tracking-wide hover:opacity-90 active:scale-[0.98] transition-all">
+              开始新分析
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+
+          <!-- 快捷入口 -->
+          <div class="mt-5 space-y-3">
+            <a href="reports.html" class="flex items-center justify-between bg-surface shadow-card px-5 py-4 hover:bg-surface-container-high transition-colors">
+              <div class="flex items-center gap-3">
+                <i data-lucide="file-text" class="w-4 h-4 text-on-surface-variant"></i>
+                <span class="text-sm text-on-surface tracking-wide">查看最新报告</span>
+              </div>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-on-surface-variant/50"></i>
+            </a>
+            <a href="knowledge.html" class="flex items-center justify-between bg-surface shadow-card px-5 py-4 hover:bg-surface-container-high transition-colors">
+              <div class="flex items-center gap-3">
+                <i data-lucide="database" class="w-4 h-4 text-on-surface-variant"></i>
+                <span class="text-sm text-on-surface tracking-wide">浏览知识库</span>
+              </div>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-on-surface-variant/50"></i>
+            </a>
+          </div>
+        </section>
+      </div>
+
+      <!-- 系统简介 -->
+      <section class="bg-primary shadow-card px-8 py-8 mb-8">
+        <div class="max-w-3xl">
+          <h2 class="text-base font-semibold text-on-primary tracking-wide mb-4" style="font-family: 'Playfair Display', Georgia, serif;">关于 Video Skeleton Analyst</h2>
+          <p class="text-sm text-on-primary/75 leading-relaxed tracking-wide">
+            Video Skeleton Analyst 是一套面向视频内容理解的骨架分析工具。通过提取视频帧的骨架结构，系统能够自动识别画面中的运动轨迹、姿态变化与场景切换模式，为视频标注、内容检索和智能剪辑提供结构化数据支持。平台支持批量处理、实时预览与报告导出，适用于影视后期、运动分析与安防监控等场景。
+          </p>
+          <div class="grid grid-cols-3 gap-6 mt-6 pt-6 border-t border-on-primary/15">
+            <div>
+              <p class="text-xs text-on-primary/50 uppercase tracking-widest mb-1">核心引擎</p>
+              <p class="text-sm text-on-primary/80 tracking-wide">PoseNet v3 + 自研骨架追踪</p>
+            </div>
+            <div>
+              <p class="text-xs text-on-primary/50 uppercase tracking-widest mb-1">支持格式</p>
+              <p class="text-sm text-on-primary/80 tracking-wide">MP4 · MOV · AVI · MKV · WebM</p>
+            </div>
+            <div>
+              <p class="text-xs text-on-primary/50 uppercase tracking-widest mb-1">部署方式</p>
+              <p class="text-sm text-on-primary/80 tracking-wide">本地 GPU / 云端集群</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+    <!-- @main-content:end -->
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+
+</html>

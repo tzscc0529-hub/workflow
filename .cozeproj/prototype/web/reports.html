@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="https://lf-code-agent.coze.cn/obj/x-ai-cn/fonts/google/google-all-fonts.css" rel="stylesheet"/>
+
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/tailwindcss/tailwindcss-browser-4.2.4.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      /* === 品牌色 === */
+      --color-primary:              #080808;
+      --color-primary-container:    #D8D1C4;
+      --color-on-primary:           #F4F1EA;
+      /* === 背景 / 表面 === */
+      --color-background:                 #F4F1EA;
+      --color-surface-container-lowest:   #F9F7F3;
+      --color-surface:                    #F4F1EA;
+      --color-surface-container:          #EDE9E0;
+      --color-surface-container-high:     #E5E0D6;
+      --color-surface-container-highest:  #DDD7CC;
+      /* === 文字 === */
+      --color-on-surface:           #111111;
+      --color-on-surface-variant:   #6B665E;
+      /* === 功能色 === */
+      --color-success:  #2d6a4f;
+      --color-error:    #8b2500;
+      --color-warning:  #7a5d00;
+      /* === 边框 === */
+      --color-outline:          #D8D1C4;
+      --color-outline-variant:  #D8D1C4;
+      /* === 圆角 === */
+      --radius-sm:   0rem;
+      --radius-md:   0rem;
+      --radius-lg:   0rem;
+      --radius-xl:   0rem;
+      --radius-2xl:  0rem;
+      --radius-full: 9999px;
+      /* === 阴影 === */
+      --shadow-card:   0 1px 3px rgba(0,0,0,0.10);
+      --shadow-float:  0 4px 12px rgba(0,0,0,0.08);
+      --shadow-dialog: 0 8px 24px rgba(0,0,0,0.10);
+      /* === 字体 === */
+      --font-sans: "Georgia", "Noto Serif SC", serif;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('error', function (e) {
+      const img = e.target;
+      if (img.tagName !== 'IMG' || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = img.getAttribute('data-category') || '其他';
+      const alt = img.getAttribute('alt') || '';
+      const label = esc(alt.length > 8 ? alt.slice(0, 8) + '…' : alt);
+      const icons = { '人物': '👤', '自然风景': '🏞', '动物': '🐾', '建筑城市': '🏙', '运动体育': '⚽', '交通工具': '🚗', '食物': '🍽', '服饰时尚': '👗', '商业科技': '💼', '游戏娱乐': '🎮', '艺术': '🎨', '其他': '🖼' };
+      const icon = icons[cat] || '🖼';
+      const w = img.width || 400, h = img.height || 300;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="45%" text-anchor="middle" font-size="${Math.min(w, h) * 0.18}" dominant-baseline="central">${icon}</text><text x="50%" y="68%" text-anchor="middle" font-size="${Math.min(w, h) * 0.07}" fill="%239ca3af" font-family="system-ui,sans-serif" dominant-baseline="central">${label}</text></svg>`;
+      img.src = 'data:image/svg+xml,' + svg;
+    }, true);
+  </script>
+</head>
+
+<body class="bg-background text-on-surface font-sans min-h-screen">
+
+  <!-- @nav:start 导航组件，不需要的页面则不要复制此段（从 @nav:start 到 @nav:end） -->
+  <header class="bg-surface-container-lowest sticky top-0 z-40 h-16 flex items-center justify-between px-6 border-b border-outline/30">
+    <div class="flex items-center gap-3">
+      <i data-lucide="film" class="text-primary w-5 h-5"></i>
+      <span class="text-lg tracking-wide text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">Video Skeleton Analyst</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-on-surface-variant tracking-widest uppercase">v2.0</span>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary text-xs font-semibold">初</div>
+    </div>
+  </header>
+
+  <div class="flex" style="height: calc(100vh - 4rem)">
+    <aside class="w-56 shrink-0 bg-surface-container-lowest border-r border-outline/30 overflow-y-auto">
+      <div class="p-4 space-y-0.5">
+        <a href="home.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>概览
+        </a>
+        <a href="analysis.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="video" class="w-4 h-4"></i>视频分析
+        </a>
+        <a href="reports.html" class="flex items-center gap-3 px-3 py-2.5 bg-primary text-on-primary text-sm tracking-wide" aria-current="page" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="file-text" class="w-4 h-4"></i>分析报告
+        </a>
+        <a href="knowledge.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="database" class="w-4 h-4"></i>知识库
+        </a>
+        <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="settings" class="w-4 h-4"></i>系统配置
+        </a>
+      </div>
+    </aside>
+
+    <!-- @main-content:start -->
+    <main class="flex-1 min-w-0 overflow-y-auto bg-background p-8">
+
+      <!-- 页面标题 -->
+      <div class="mb-8">
+        <h1 class="text-2xl font-bold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">分析报告</h1>
+        <p class="text-sm text-on-surface-variant mt-1 tracking-wide">管理所有视频分析生成的报告文档</p>
+      </div>
+
+      <!-- 统计卡片 -->
+      <div class="grid grid-cols-2 gap-6 mb-10">
+        <div class="bg-surface shadow-card p-5">
+          <div class="flex items-center gap-2 text-on-surface-variant text-xs tracking-widest uppercase mb-2">
+            <i data-lucide="files" class="w-3.5 h-3.5"></i>总报告数
+          </div>
+          <span class="text-3xl font-bold text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">12</span>
+        </div>
+        <div class="bg-surface shadow-card p-5">
+          <div class="flex items-center gap-2 text-on-surface-variant text-xs tracking-widest uppercase mb-2">
+            <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>本月新增
+          </div>
+          <span class="text-3xl font-bold text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">3</span>
+        </div>
+      </div>
+
+      <!-- 搜索与筛选 -->
+      <div class="flex items-center gap-4 mb-8">
+        <div class="relative flex-1 max-w-md">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/50"></i>
+          <input
+            id="search-input"
+            type="text"
+            class="w-full bg-surface-container border-none pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all tracking-wide"
+            placeholder="搜索报告标题或视频名称…"
+          />
+        </div>
+        <div class="flex items-center gap-1">
+          <!-- 筛选-全部 -->
+          <button id="filter-all" class="filter-btn px-4 py-2 text-sm font-medium text-on-surface bg-primary text-on-primary transition-all tracking-wide" data-filter="all">全部</button>
+          <!-- 筛选-已完成 -->
+          <button id="filter-done" class="filter-btn px-4 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all tracking-wide" data-filter="done">已完成</button>
+          <!-- 筛选-进行中 -->
+          <button id="filter-progress" class="filter-btn px-4 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all tracking-wide" data-filter="progress">进行中</button>
+          <!-- 筛选-失败 -->
+          <button id="filter-failed" class="filter-btn px-4 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all tracking-wide" data-filter="failed">失败</button>
+        </div>
+      </div>
+
+      <!-- 报告列表 -->
+      <div id="report-list" class="bg-surface shadow-card">
+
+        <!-- 列表-报告1：已完成 -->
+        <div class="report-item border-b border-outline/20" data-status="done">
+          <div class="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-surface-container/30 transition-colors" id="report-row-1">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <!-- 展开图标 -->
+              <i data-lucide="chevron-right" class="w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform expand-icon" id="expand-icon-1"></i>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3">
+                  <span class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">城市夜景延时结构分析</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success/15 text-success tracking-wide">已完成</span>
+                </div>
+                <div class="flex items-center gap-4 mt-1">
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i>城市夜景4K航拍.mp4</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i>2025-01-15 14:30</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="hard-drive" class="w-3 h-3"></i>2.4 MB</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-4">
+              <button id="btn-download-1" class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="下载 JSON">
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-export-1" class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="导出 CSV">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-delete-1" class="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <!-- 展开详情 -->
+          <div class="report-detail hidden px-5 pb-5 pt-0 border-t border-outline/10 mx-5" id="detail-1">
+            <div class="grid grid-cols-3 gap-6 mt-5">
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">视频时长</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">3 分 42 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析耗时</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">1 分 18 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析方法</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">骨架识别 · 深度分析</p>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">关键词标签</span>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">城市夜景</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">航拍</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">延时摄影</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">建筑结构</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">灯光轨迹</span>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">摘要</span>
+              <p class="text-sm text-on-surface mt-1 leading-relaxed tracking-wide">该视频为城市夜景4K航拍素材，通过骨架识别算法提取了 2,847 个关键帧，识别出 12 组结构性运动轨迹。画面中建筑群纵向骨架占比 62%，水平延展占比 38%，灯光轨迹呈放射状分布，整体节奏指数为 7.8/10。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列表-报告2：已完成 -->
+        <div class="report-item border-b border-outline/20" data-status="done">
+          <div class="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-surface-container/30 transition-colors" id="report-row-2">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <i data-lucide="chevron-right" class="w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform expand-icon" id="expand-icon-2"></i>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3">
+                  <span class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">运动赛事精彩瞬间骨架分析</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success/15 text-success tracking-wide">已完成</span>
+                </div>
+                <div class="flex items-center gap-4 mt-1">
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i>篮球赛决赛集锦.mp4</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i>2025-01-14 09:15</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="hard-drive" class="w-3 h-3"></i>3.8 MB</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-4">
+              <button id="btn-download-2" class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="下载 JSON">
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-export-2" class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="导出 CSV">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-delete-2" class="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div class="report-detail hidden px-5 pb-5 pt-0 border-t border-outline/10 mx-5" id="detail-2">
+            <div class="grid grid-cols-3 gap-6 mt-5">
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">视频时长</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">8 分 12 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析耗时</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">2 分 45 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析方法</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">运动追踪 · 骨架识别</p>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">关键词标签</span>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">篮球</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">运动追踪</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">精彩瞬间</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">高速运动</span>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">摘要</span>
+              <p class="text-sm text-on-surface mt-1 leading-relaxed tracking-wide">该视频为篮球赛决赛集锦，共识别出 5,120 个运动骨架片段。球员动作骨架覆盖率达 94%，快速变向轨迹 38 条，跳跃动作峰值 17 次。整体运动强度指数 9.2/10，属于高强度运动场景。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列表-报告3：进行中 -->
+        <div class="report-item border-b border-outline/20" data-status="progress">
+          <div class="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-surface-container/30 transition-colors" id="report-row-3">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <i data-lucide="chevron-right" class="w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform expand-icon" id="expand-icon-3"></i>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3">
+                  <span class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">自然风光纪录片素材分析</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-warning/15 text-warning tracking-wide">进行中</span>
+                </div>
+                <div class="flex items-center gap-4 mt-1">
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i>山川湖泊全景.mp4</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i>2025-01-16 16:00</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="hard-drive" class="w-3 h-3"></i>—</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-4">
+              <button id="btn-download-3" class="p-2 text-on-surface-variant/30 cursor-not-allowed" title="分析中，暂不可下载" disabled>
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-export-3" class="p-2 text-on-surface-variant/30 cursor-not-allowed" title="分析中，暂不可导出" disabled>
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-delete-3" class="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div class="report-detail hidden px-5 pb-5 pt-0 border-t border-outline/10 mx-5" id="detail-3">
+            <div class="grid grid-cols-3 gap-6 mt-5">
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">视频时长</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">12 分 05 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析耗时</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">分析中… 预计 4 分钟</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析方法</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">全景骨架 · 深度分析</p>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">关键词标签</span>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">山川</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">湖泊</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">全景</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">自然风光</span>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">摘要</span>
+              <p class="text-sm text-on-surface mt-1 leading-relaxed tracking-wide">该视频正在分析中，已处理 62% 的帧数据。当前识别出水平线骨架占比 78%，垂直结构（山脉轮廓）占比 22%，预计将提取约 3,500 个关键帧。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列表-报告4：失败 -->
+        <div class="report-item border-b border-outline/20" data-status="failed">
+          <div class="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-surface-container/30 transition-colors" id="report-row-4">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <i data-lucide="chevron-right" class="w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform expand-icon" id="expand-icon-4"></i>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3">
+                  <span class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">低光照夜拍素材结构提取</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-error/15 text-error tracking-wide">失败</span>
+                </div>
+                <div class="flex items-center gap-4 mt-1">
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i>夜间街拍素材.mp4</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i>2025-01-14 22:45</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="hard-drive" class="w-3 h-3"></i>—</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-4">
+              <button id="btn-download-4" class="p-2 text-on-surface-variant/30 cursor-not-allowed" title="分析失败，暂不可下载" disabled>
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-export-4" class="p-2 text-on-surface-variant/30 cursor-not-allowed" title="分析失败，暂不可导出" disabled>
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-delete-4" class="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div class="report-detail hidden px-5 pb-5 pt-0 border-t border-outline/10 mx-5" id="detail-4">
+            <div class="grid grid-cols-3 gap-6 mt-5">
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">视频时长</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">1 分 28 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析耗时</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">38 秒（已中断）</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析方法</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">骨架识别 · 标准分析</p>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">关键词标签</span>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">夜拍</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">低光照</span>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">摘要</span>
+              <p class="text-sm text-on-surface mt-1 leading-relaxed tracking-wide">分析失败：画面亮度过低（平均亮度 < 12 cd/m²），骨架识别算法无法有效提取结构特征。建议在充足光照条件下重新拍摄，或使用红外补光设备提升画面亮度。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列表-报告5：已完成 -->
+        <div class="report-item border-b border-outline/20" data-status="done">
+          <div class="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-surface-container/30 transition-colors" id="report-row-5">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <i data-lucide="chevron-right" class="w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform expand-icon" id="expand-icon-5"></i>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3">
+                  <span class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">产品宣传片节奏骨架分析</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success/15 text-success tracking-wide">已完成</span>
+                </div>
+                <div class="flex items-center gap-4 mt-1">
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i>品牌宣传片_v3.mp4</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i>2025-01-12 11:20</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="hard-drive" class="w-3 h-3"></i>1.9 MB</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-4">
+              <button id="btn-download-5" class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="下载 JSON">
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-export-5" class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="导出 CSV">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-delete-5" class="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div class="report-detail hidden px-5 pb-5 pt-0 border-t border-outline/10 mx-5" id="detail-5">
+            <div class="grid grid-cols-3 gap-6 mt-5">
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">视频时长</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">2 分 15 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析耗时</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">52 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析方法</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">节奏分析 · 骨架识别</p>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">关键词标签</span>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">产品宣传</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">节奏分析</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">品牌</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">快节奏</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">转场</span>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">摘要</span>
+              <p class="text-sm text-on-surface mt-1 leading-relaxed tracking-wide">该产品宣传片共 23 个转场，平均节奏指数 8.5/10。骨架分析显示，前 30 秒采用慢节奏建立品牌认知，中段切换为快速剪辑（平均 1.8 秒/镜头），结尾回归沉稳。整体节奏曲线呈"快-慢-快"结构，符合宣传片最佳实践。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列表-报告6：进行中 -->
+        <div class="report-item" data-status="progress">
+          <div class="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-surface-container/30 transition-colors" id="report-row-6">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <i data-lucide="chevron-right" class="w-4 h-4 text-on-surface-variant/50 shrink-0 transition-transform expand-icon" id="expand-icon-6"></i>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3">
+                  <span class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">访谈节目人物骨架追踪</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-warning/15 text-warning tracking-wide">进行中</span>
+                </div>
+                <div class="flex items-center gap-4 mt-1">
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i>深度访谈_第12期.mp4</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i>2025-01-15 08:00</span>
+                  <span class="text-xs text-on-surface-variant flex items-center gap-1"><i data-lucide="hard-drive" class="w-3 h-3"></i>—</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-4">
+              <button id="btn-download-6" class="p-2 text-on-surface-variant/30 cursor-not-allowed" title="分析中，暂不可下载" disabled>
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-export-6" class="p-2 text-on-surface-variant/30 cursor-not-allowed" title="分析中，暂不可导出" disabled>
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-delete-6" class="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div class="report-detail hidden px-5 pb-5 pt-0 border-t border-outline/10 mx-5" id="detail-6">
+            <div class="grid grid-cols-3 gap-6 mt-5">
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">视频时长</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">45 分 30 秒</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析耗时</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">分析中… 预计 12 分钟</p>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant tracking-widest uppercase">分析方法</span>
+                <p class="text-sm font-semibold text-on-surface mt-1">人物追踪 · 骨架识别</p>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">关键词标签</span>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">访谈</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">人物追踪</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs bg-surface-container text-on-surface">面部骨骼</span>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-xs text-on-surface-variant tracking-widest uppercase">摘要</span>
+              <p class="text-sm text-on-surface mt-1 leading-relaxed tracking-wide">该访谈视频正在分析中，已处理 38% 的帧数据。当前识别出 2 位主要人物，面部骨架追踪准确率 96%，手势动作追踪到 147 个关键姿态。预计完整分析将提取约 12,000 个关键帧。</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+    <!-- @main-content:end -->
+  </div>
+
+  <script>lucide.createIcons();</script>
+
+  <script>
+    $(function() {
+
+      // ===== 展开/折叠报告详情 =====
+      $('#report-list').on('click', '.report-item > div:first-child', function() {
+        var $item = $(this).closest('.report-item');
+        var $detail = $item.find('.report-detail');
+        var $icon = $(this).find('.expand-icon');
+
+        $detail.slideToggle(200);
+        if ($detail.is(':visible')) {
+          $icon.css('transform', 'rotate(90deg)');
+        } else {
+          $icon.css('transform', 'rotate(0deg)');
+        }
+      });
+
+      // ===== 筛选功能 =====
+      $('.filter-btn').on('click', function() {
+        var filter = $(this).data('filter');
+
+        // 更新按钮激活态
+        $('.filter-btn').removeClass('bg-primary text-on-primary').addClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container');
+        $(this).addClass('bg-primary text-on-primary').removeClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container');
+
+        // 筛选报告项
+        if (filter === 'all') {
+          $('.report-item').show();
+        } else {
+          $('.report-item').each(function() {
+            if ($(this).data('status') === filter) {
+              $(this).show();
+            } else {
+              $(this).hide();
+            }
+          });
+        }
+      });
+
+      // ===== 搜索功能 =====
+      $('#search-input').on('input', function() {
+        var keyword = $(this).val().toLowerCase();
+
+        $('.report-item').each(function() {
+          var text = $(this).text().toLowerCase();
+          if (text.indexOf(keyword) >= 0) {
+            $(this).show();
+          } else {
+            $(this).hide();
+          }
+        });
+
+        // 搜索时重置筛选按钮为"全部"
+        if (keyword) {
+          $('.filter-btn').removeClass('bg-primary text-on-primary').addClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container');
+          $('#filter-all').addClass('bg-primary text-on-primary').removeClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container');
+        }
+      });
+
+      // ===== 下载 JSON =====
+      $('#report-list').on('click', '[id^="btn-download-"]', function(e) {
+        e.stopPropagation();
+        var id = $(this).attr('id').replace('btn-download-', '');
+        console.log('下载 JSON 报告，报告ID:', id);
+        // 后续实现：
+        // 1. 调用后端接口 GET /api/reports/{id}/json
+        // 2. 触发浏览器下载 .json 文件
+        // 3. 文件名格式：report_{id}_{timestamp}.json
+      });
+
+      // ===== 导出 CSV =====
+      $('#report-list').on('click', '[id^="btn-export-"]', function(e) {
+        e.stopPropagation();
+        var id = $(this).attr('id').replace('btn-export-', '');
+        console.log('导出 CSV 报告，报告ID:', id);
+        // 后续实现：
+        // 1. 调用后端接口 GET /api/reports/{id}/csv
+        // 2. 触发浏览器下载 .csv 文件
+        // 3. 文件名格式：report_{id}_{timestamp}.csv
+      });
+
+      // ===== 删除报告 =====
+      $('#report-list').on('click', '[id^="btn-delete-"]', function(e) {
+        e.stopPropagation();
+        var id = $(this).attr('id').replace('btn-delete-', '');
+        var $item = $(this).closest('.report-item');
+
+        // 简单交互：直接移除 DOM 节点
+        $item.slideUp(300, function() {
+          $(this).remove();
+        });
+
+        console.log('删除报告，报告ID:', id);
+        // 后续实现：
+        // 1. 弹出确认对话框："确定要删除该报告吗？此操作不可恢复。"
+        // 2. 用户确认后调用 DELETE /api/reports/{id}
+        // 3. 成功后从列表中移除该行
+        // 4. 更新顶部统计数字（总报告数 -1，如在本月则本月新增 -1）
+      });
+
+    });
+  </script>
+</body>
+
+</html>

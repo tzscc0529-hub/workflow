@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="https://lf-code-agent.coze.cn/obj/x-ai-cn/fonts/google/google-all-fonts.css" rel="stylesheet"/>
+
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/tailwindcss/tailwindcss-browser-4.2.4.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      /* === 品牌色 === */
+      --color-primary:              #080808;
+      --color-primary-container:    #D8D1C4;
+      --color-on-primary:           #F4F1EA;
+      /* === 背景 / 表面 === */
+      --color-background:                 #F4F1EA;
+      --color-surface-container-lowest:   #F9F7F3;
+      --color-surface:                    #F4F1EA;
+      --color-surface-container:          #EDE9E0;
+      --color-surface-container-high:     #E5E0D6;
+      --color-surface-container-highest:  #DDD7CC;
+      /* === 文字 === */
+      --color-on-surface:           #111111;
+      --color-on-surface-variant:   #6B665E;
+      /* === 功能色 === */
+      --color-success:  #2d6a4f;
+      --color-error:    #8b2500;
+      --color-warning:  #7a5d00;
+      /* === 边框 === */
+      --color-outline:          #D8D1C4;
+      --color-outline-variant:  #D8D1C4;
+      /* === 圆角 === */
+      --radius-sm:   0rem;
+      --radius-md:   0rem;
+      --radius-lg:   0rem;
+      --radius-xl:   0rem;
+      --radius-2xl:  0rem;
+      --radius-full: 9999px;
+      /* === 阴影 === */
+      --shadow-card:   0 1px 3px rgba(0,0,0,0.10);
+      --shadow-float:  0 4px 12px rgba(0,0,0,0.08);
+      --shadow-dialog: 0 8px 24px rgba(0,0,0,0.10);
+      /* === 字体 === */
+      --font-sans: "Georgia", "Noto Serif SC", serif;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('error', function (e) {
+      const img = e.target;
+      if (img.tagName !== 'IMG' || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = img.getAttribute('data-category') || '其他';
+      const alt = img.getAttribute('alt') || '';
+      const label = esc(alt.length > 8 ? alt.slice(0, 8) + '…' : alt);
+      const icons = { '人物': '👤', '自然风景': '🏞', '动物': '🐾', '建筑城市': '🏙', '运动体育': '⚽', '交通工具': '🚗', '食物': '🍽', '服饰时尚': '👗', '商业科技': '💼', '游戏娱乐': '🎮', '艺术': '🎨', '其他': '🖼' };
+      const icon = icons[cat] || '🖼';
+      const w = img.width || 400, h = img.height || 300;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="45%" text-anchor="middle" font-size="${Math.min(w, h) * 0.18}" dominant-baseline="central">${icon}</text><text x="50%" y="68%" text-anchor="middle" font-size="${Math.min(w, h) * 0.07}" fill="%239ca3af" font-family="system-ui,sans-serif" dominant-baseline="central">${label}</text></svg>`;
+      img.src = 'data:image/svg+xml,' + svg;
+    }, true);
+  </script>
+</head>
+
+<body class="bg-background text-on-surface font-sans min-h-screen">
+
+  <!-- @nav:start 导航组件 -->
+  <header class="bg-surface-container-lowest sticky top-0 z-40 h-16 flex items-center justify-between px-6 border-b border-outline/30">
+    <div class="flex items-center gap-3">
+      <i data-lucide="film" class="text-primary w-5 h-5"></i>
+      <span class="text-lg tracking-wide text-on-surface" style="font-family: 'Playfair Display', Georgia, serif;">Video Skeleton Analyst</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-on-surface-variant tracking-widest uppercase">v2.0</span>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary text-xs font-semibold">初</div>
+    </div>
+  </header>
+
+  <div class="flex" style="height: calc(100vh - 4rem)">
+    <aside class="w-56 shrink-0 bg-surface-container-lowest border-r border-outline/30 overflow-y-auto">
+      <div class="p-4 space-y-0.5">
+        <a href="home.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>概览
+        </a>
+        <a href="analysis.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="video" class="w-4 h-4"></i>视频分析
+        </a>
+        <a href="reports.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="file-text" class="w-4 h-4"></i>分析报告
+        </a>
+        <a href="knowledge.html" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface text-sm transition-colors tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="database" class="w-4 h-4"></i>知识库
+        </a>
+        <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 bg-primary text-on-primary text-sm tracking-wide" aria-current="page" style="font-family: 'Playfair Display', Georgia, serif;">
+          <i data-lucide="settings" class="w-4 h-4"></i>系统配置
+        </a>
+      </div>
+    </aside>
+
+    <!-- @main-content:start -->
+    <main class="flex-1 min-w-0 overflow-y-auto bg-background">
+
+      <!-- 页面头部 -->
+      <div class="px-8 pt-8 pb-6">
+        <h1 class="text-2xl font-bold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">系统配置</h1>
+        <p class="text-sm text-on-surface-variant mt-1.5">管理 API 密钥、存储路径与分析参数</p>
+      </div>
+
+      <div class="px-8 pb-12 space-y-10 max-w-3xl">
+
+        <!-- ===== 一、API 密钥配置 ===== -->
+        <section>
+          <div class="flex items-center gap-3 mb-5">
+            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-on-primary text-xs font-semibold">1</span>
+            <h2 class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">API 密钥配置</h2>
+          </div>
+          <div class="bg-surface shadow-card p-5 space-y-4">
+            <!-- Gemini API Key -->
+            <div>
+              <label for="input-api-key" class="block text-sm font-medium text-on-surface mb-1.5">Gemini API Key</label>
+              <div class="relative">
+                <input id="input-api-key" type="password"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 pr-10 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       placeholder="输入 Gemini API Key"
+                       value="AIzaSyD-xxxxxxxxxxxxxxxxxxxxxxxxxx" />
+                <button id="btn-toggle-key" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface transition-colors" title="显示/隐藏密钥">
+                  <i data-lucide="eye-off" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <p class="text-xs text-on-surface-variant mt-1.5">密钥已加密存储，仅用于 API 调用鉴权</p>
+            </div>
+            <!-- 连接测试 -->
+            <div class="flex items-center gap-3 pt-1">
+              <button id="btn-test-connection"
+                      class="bg-surface-container text-on-surface border-none px-4 py-2 text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all inline-flex items-center gap-2">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>测试连接
+              </button>
+              <span id="test-result" class="text-sm text-on-surface-variant"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分隔线 -->
+        <hr class="border-outline/30" />
+
+        <!-- ===== 二、目录路径配置 ===== -->
+        <section>
+          <div class="flex items-center gap-3 mb-5">
+            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-on-primary text-xs font-semibold">2</span>
+            <h2 class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">目录路径配置</h2>
+          </div>
+          <div class="bg-surface shadow-card p-5 space-y-4">
+            <!-- 视频目录 -->
+            <div>
+              <label for="input-video-dir" class="block text-sm font-medium text-on-surface mb-1.5">视频目录</label>
+              <div class="flex gap-2">
+                <input id="input-video-dir" type="text"
+                       class="flex-1 bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="/data/videos" />
+                <button id="btn-browse-video-dir" class="bg-surface-container text-on-surface border-none px-3 py-2.5 text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all inline-flex items-center gap-1.5 shrink-0">
+                  <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>浏览
+                </button>
+              </div>
+              <p class="text-xs text-on-surface-variant mt-1.5">当前路径预览：<span id="preview-video-dir" class="text-on-surface font-medium">/data/videos</span>（包含 12 个视频文件）</p>
+            </div>
+            <!-- 输出目录 -->
+            <div>
+              <label for="input-output-dir" class="block text-sm font-medium text-on-surface mb-1.5">输出目录</label>
+              <div class="flex gap-2">
+                <input id="input-output-dir" type="text"
+                       class="flex-1 bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="/data/output" />
+                <button id="btn-browse-output-dir" class="bg-surface-container text-on-surface border-none px-3 py-2.5 text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all inline-flex items-center gap-1.5 shrink-0">
+                  <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>浏览
+                </button>
+              </div>
+              <p class="text-xs text-on-surface-variant mt-1.5">当前路径预览：<span id="preview-output-dir" class="text-on-surface font-medium">/data/output</span>（已使用 2.4 GB / 50 GB）</p>
+            </div>
+            <!-- 数据库目录 -->
+            <div>
+              <label for="input-db-dir" class="block text-sm font-medium text-on-surface mb-1.5">数据库目录</label>
+              <div class="flex gap-2">
+                <input id="input-db-dir" type="text"
+                       class="flex-1 bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="/data/db" />
+                <button id="btn-browse-db-dir" class="bg-surface-container text-on-surface border-none px-3 py-2.5 text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all inline-flex items-center gap-1.5 shrink-0">
+                  <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>浏览
+                </button>
+              </div>
+              <p class="text-xs text-on-surface-variant mt-1.5">当前路径预览：<span id="preview-db-dir" class="text-on-surface font-medium">/data/db</span>（SQLite，3 个数据库文件）</p>
+            </div>
+            <!-- 知识缓存路径 -->
+            <div>
+              <label for="input-cache-dir" class="block text-sm font-medium text-on-surface mb-1.5">知识缓存路径</label>
+              <div class="flex gap-2">
+                <input id="input-cache-dir" type="text"
+                       class="flex-1 bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="/data/cache/knowledge" />
+                <button id="btn-browse-cache-dir" class="bg-surface-container text-on-surface border-none px-3 py-2.5 text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all inline-flex items-center gap-1.5 shrink-0">
+                  <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>浏览
+                </button>
+              </div>
+              <p class="text-xs text-on-surface-variant mt-1.5">当前路径预览：<span id="preview-cache-dir" class="text-on-surface font-medium">/data/cache/knowledge</span>（缓存大小 856 MB）</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分隔线 -->
+        <hr class="border-outline/30" />
+
+        <!-- ===== 三、分析参数配置 ===== -->
+        <section>
+          <div class="flex items-center gap-3 mb-5">
+            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-on-primary text-xs font-semibold">3</span>
+            <h2 class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">分析参数配置</h2>
+          </div>
+          <div class="bg-surface shadow-card p-5">
+            <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+              <!-- 默认模型选择 -->
+              <div>
+                <label for="select-model" class="block text-sm font-medium text-on-surface mb-1.5">默认模型</label>
+                <select id="select-model"
+                        class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors appearance-none"
+                        style="background-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236B665E%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center;">
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-2.0-pro" selected>Gemini 2.0 Pro</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                </select>
+              </div>
+              <!-- 最大重试次数 -->
+              <div>
+                <label for="input-max-retries" class="block text-sm font-medium text-on-surface mb-1.5">最大重试次数</label>
+                <input id="input-max-retries" type="number" min="0" max="10"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="3" />
+              </div>
+              <!-- HTTP 超时 -->
+              <div>
+                <label for="input-http-timeout" class="block text-sm font-medium text-on-surface mb-1.5">HTTP 超时（秒）</label>
+                <input id="input-http-timeout" type="number" min="10" max="300"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="60" />
+              </div>
+              <!-- 文件处理超时 -->
+              <div>
+                <label for="input-file-timeout" class="block text-sm font-medium text-on-surface mb-1.5">文件处理超时（秒）</label>
+                <input id="input-file-timeout" type="number" min="30" max="600"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="120" />
+              </div>
+              <!-- 最大输出 Token -->
+              <div>
+                <label for="input-max-tokens" class="block text-sm font-medium text-on-surface mb-1.5">最大输出 Token 数</label>
+                <input id="input-max-tokens" type="number" min="256" max="32768" step="256"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="8192" />
+              </div>
+              <!-- 轮询间隔 -->
+              <div>
+                <label for="input-poll-interval" class="block text-sm font-medium text-on-surface mb-1.5">轮询间隔（秒）</label>
+                <input id="input-poll-interval" type="number" min="1" max="60"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="5" />
+              </div>
+              <!-- 温度参数 -->
+              <div>
+                <label for="input-temperature" class="block text-sm font-medium text-on-surface mb-1.5">温度 (Temperature)</label>
+                <input id="input-temperature" type="number" min="0" max="2" step="0.1"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="0.7" />
+              </div>
+              <!-- Top-P -->
+              <div>
+                <label for="input-top-p" class="block text-sm font-medium text-on-surface mb-1.5">Top-P</label>
+                <input id="input-top-p" type="number" min="0" max="1" step="0.05"
+                       class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+                       value="0.95" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分隔线 -->
+        <hr class="border-outline/30" />
+
+        <!-- ===== 四、上传设置 ===== -->
+        <section>
+          <div class="flex items-center gap-3 mb-5">
+            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-on-primary text-xs font-semibold">4</span>
+            <h2 class="text-base font-semibold text-on-surface tracking-wide" style="font-family: 'Playfair Display', Georgia, serif;">上传设置</h2>
+          </div>
+          <div class="bg-surface shadow-card p-5">
+            <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+              <!-- 上传模式 -->
+              <div class="col-span-2">
+                <label class="block text-sm font-medium text-on-surface mb-2">上传模式</label>
+                <div class="flex gap-4">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="upload-mode" value="local" checked
+                           class="w-4 h-4 text-primary border-outline-variant focus:ring-primary/30" />
+                    <span class="text-sm text-on-surface">本地上传</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="upload-mode" value="remote"
+                           class="w-4 h-4 text-primary border-outline-variant focus:ring-primary/30" />
+                    <span class="text-sm text-on-surface">远程 URL</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="upload-mode" value="s3"
+                           class="w-4 h-4 text-primary border-outline-variant focus:ring-primary/30" />
+                    <span class="text-sm text-on-surface">S3 / 对象存储</span>
+                  </label>
+                </div>
+              </div>
+              <!-- 上传分块大小 -->
+              <div>
+                <label for="select-chunk-size" class="block text-sm font-medium text-on-surface mb-1.5">上传分块大小</label>
+                <select id="select-chunk-size"
+                        class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors appearance-none"
+                        style="background-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236B665E%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center;">
+                  <option value="1">1 MB</option>
+                  <option value="5" selected>5 MB</option>
+                  <option value="10">10 MB</option>
+                  <option value="25">25 MB</option>
+                  <option value="50">50 MB</option>
+                </select>
+              </div>
+              <!-- 目标压缩大小 -->
+              <div>
+                <label for="select-compress-size" class="block text-sm font-medium text-on-surface mb-1.5">目标压缩大小</label>
+                <select id="select-compress-size"
+                        class="w-full bg-surface-container border-none rounded-md px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors appearance-none"
+                        style="background-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236B665E%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center;">
+                  <option value="50">50 MB</option>
+                  <option value="100" selected>100 MB</option>
+                  <option value="200">200 MB</option>
+                  <option value="500">500 MB</option>
+                  <option value="original">保持原始大小</option>
+                </select>
+              </div>
+              <!-- 允许的文件类型 -->
+              <div class="col-span-2">
+                <label class="block text-sm font-medium text-on-surface mb-1.5">允许的文件类型</label>
+                <div class="flex flex-wrap gap-2">
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-sm text-on-surface">
+                    <i data-lucide="check" class="w-3 h-3 text-success"></i>MP4
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-sm text-on-surface">
+                    <i data-lucide="check" class="w-3 h-3 text-success"></i>MOV
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-sm text-on-surface">
+                    <i data-lucide="check" class="w-3 h-3 text-success"></i>AVI
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-sm text-on-surface">
+                    <i data-lucide="check" class="w-3 h-3 text-success"></i>MKV
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-sm text-on-surface">
+                    <i data-lucide="check" class="w-3 h-3 text-success"></i>WebM
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-sm text-on-surface-variant">
+                    <i data-lucide="x" class="w-3 h-3 text-on-surface-variant/40"></i>FLV
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== 底部操作按钮 ===== -->
+        <div class="flex items-center gap-4 pt-4">
+          <button id="btn-save-settings"
+                  class="bg-primary text-on-primary px-6 py-2.5 text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all inline-flex items-center gap-2">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>保存配置
+          </button>
+          <button id="btn-reset-settings"
+                  class="bg-surface-container text-on-surface border-none px-6 py-2.5 text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all inline-flex items-center gap-2">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>重置默认
+          </button>
+        </div>
+
+      </div>
+
+    </main>
+    <!-- @main-content:end -->
+  </div>
+
+  <script>lucide.createIcons();</script>
+
+  <script>
+    $(function() {
+
+      // ===== API 密钥显示/隐藏切换 =====
+      $('#btn-toggle-key').on('click', function() {
+        const $input = $('#input-api-key');
+        const $icon = $(this).find('i');
+        if ($input.attr('type') === 'password') {
+          $input.attr('type', 'text');
+          $icon.attr('data-lucide', 'eye');
+        } else {
+          $input.attr('type', 'password');
+          $icon.attr('data-lucide', 'eye-off');
+        }
+        lucide.createIcons();
+      });
+
+      // ===== 连接测试 =====
+      $('#btn-test-connection').on('click', function() {
+        const $btn = $(this);
+        const $result = $('#test-result');
+        const originalHTML = $btn.html();
+
+        // 模拟测试过程
+        $btn.prop('disabled', true).html('<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i>测试中…');
+        lucide.createIcons();
+        $result.text('');
+
+        setTimeout(function() {
+          $btn.prop('disabled', false).html(originalHTML);
+          lucide.createIcons();
+          // 模拟成功结果
+          $result.html('<span class="text-success text-sm font-medium">✓ 连接成功 — Gemini 2.0 Pro 可用</span>');
+        }, 1500);
+      });
+
+      // ===== 目录路径实时预览 =====
+      var dirInputMap = {
+        'input-video-dir': 'preview-video-dir',
+        'input-output-dir': 'preview-output-dir',
+        'input-db-dir': 'preview-db-dir',
+        'input-cache-dir': 'preview-cache-dir'
+      };
+
+      Object.keys(dirInputMap).forEach(function(inputId) {
+        $('#' + inputId).on('input', function() {
+          $('#' + dirInputMap[inputId]).text($(this).val());
+        });
+      });
+
+      // ===== 浏览按钮 - 模拟文件选择器 =====
+      // 点击浏览按钮后应调用系统文件选择器，允许用户选择对应目录。
+      // 由于浏览器安全限制，实际场景中后端需提供目录选择 API。
+      // 当前为原型演示，点击后通过 prompt 模拟路径输入。
+      $('[id^="btn-browse-"]').on('click', function() {
+        var targetInputId = $(this).attr('id').replace('btn-browse-', 'input-');
+        var currentPath = $('#' + targetInputId).val();
+        console.log('需要调用系统文件选择器，选择目录路径。当前路径：' + currentPath);
+        // 原型阶段：弹出 prompt 模拟路径输入
+        var newPath = prompt('选择目录路径：', currentPath);
+        if (newPath) {
+          $('#' + targetInputId).val(newPath).trigger('input');
+        }
+      });
+
+      // ===== 保存配置 =====
+      $('#btn-save-settings').on('click', function() {
+        // 收集所有配置项
+        var settings = {
+          apiKey: $('#input-api-key').val(),
+          videoDir: $('#input-video-dir').val(),
+          outputDir: $('#input-output-dir').val(),
+          dbDir: $('#input-db-dir').val(),
+          cacheDir: $('#input-cache-dir').val(),
+          model: $('#select-model').val(),
+          maxRetries: $('#input-max-retries').val(),
+          httpTimeout: $('#input-http-timeout').val(),
+          fileTimeout: $('#input-file-timeout').val(),
+          maxTokens: $('#input-max-tokens').val(),
+          pollInterval: $('#input-poll-interval').val(),
+          temperature: $('#input-temperature').val(),
+          topP: $('#input-top-p').val(),
+          uploadMode: $('input[name="upload-mode"]:checked').val(),
+          chunkSize: $('#select-chunk-size').val(),
+          compressSize: $('#select-compress-size').val()
+        };
+
+        console.log('保存配置：', JSON.stringify(settings, null, 2));
+        // 后续应实现：
+        // 1. 对配置项进行前端校验（API Key 格式、路径有效性、数值范围等）
+        // 2. 通过 POST 请求将配置发送到后端 /api/settings 接口
+        // 3. 后端校验并持久化到配置文件或数据库
+        // 4. 成功后显示 toast 提示"配置已保存"并刷新相关服务
+        // 5. 失败则显示具体错误信息，不关闭当前页面
+        alert('配置已保存（原型演示）');
+      });
+
+      // ===== 重置默认 =====
+      $('#btn-reset-settings').on('click', function() {
+        // 后续应实现：
+        // 1. 弹出确认对话框，提示用户此操作将覆盖所有当前配置
+        // 2. 用户确认后，从后端 /api/settings/defaults 获取默认配置
+        // 3. 将默认值填充到所有表单字段
+        // 4. 不自动保存，用户需再次点击"保存配置"才会持久化
+        if (confirm('确定要重置所有配置为默认值吗？此操作不可撤销。')) {
+          console.log('重置为默认配置');
+          // 原型阶段直接刷新页面模拟重置
+          location.reload();
+        }
+      });
+
+      // ===== 上传模式切换高亮 =====
+      $('input[name="upload-mode"]').on('change', function() {
+        console.log('上传模式切换为：', $(this).val());
+        // 后续应实现：根据选中的模式显示/隐藏对应的配置区域
+        // 如 S3 模式需额外显示 Bucket、Region、Access Key 等字段
+      });
+
+    });
+  </script>
+
+</body>
+
+</html>
